@@ -1,0 +1,970 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Web CR · Conversational Analytics</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+  <style>
+    :root {
+      --bg: #08080c; --surface: #11111a; --surface-2: #181822; --surface-3: #1f1f2b;
+      --border: #26262f; --border-strong: #383844;
+      --text: #ececf1; --text-2: #b4b4c0; --muted: #6c6c7a;
+      --accent: #a78bfa; --accent-2: #60a5fa;
+      --accent-grad: linear-gradient(135deg, #a78bfa 0%, #60a5fa 100%);
+      --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
+      --radius: 12px; --radius-sm: 8px;
+      --chat-w: 440px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow-x: hidden; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg); color: var(--text);
+      font-size: 14px; line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input, select { font-family: inherit; color: inherit; }
+
+    .layout { display: flex; min-height: 100vh; transition: padding-right 0.3s cubic-bezier(0.4,0,0.2,1); }
+    .layout.chat-open { padding-right: var(--chat-w); }
+    .page-wrap { flex: 1; min-width: 0; }
+    .page { max-width: 1400px; margin: 0 auto; padding: 24px 28px 60px; }
+
+    /* ============== Tabs (Overview / Web CR / App CR / RTO / ...) ============== */
+    .top-tabs {
+      display: flex; gap: 6px;
+      margin-bottom: 18px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .top-tab {
+      padding: 9px 16px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--text-2);
+      font-size: 13px; font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .top-tab:hover { color: var(--text); border-color: var(--border-strong); }
+    .top-tab.active {
+      background: var(--accent-grad);
+      border-color: transparent;
+      color: white;
+      box-shadow: 0 4px 14px rgba(167, 139, 250, 0.3);
+    }
+    .top-tab.disabled { opacity: 0.4; cursor: not-allowed; }
+    .period-label {
+      margin-left: auto; color: var(--muted); font-size: 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    /* ============== Filter chips ============== */
+    .chip-row {
+      display: flex; gap: 16px;
+      margin-bottom: 18px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .chip-group { display: flex; align-items: center; gap: 8px; }
+    .chip-group-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+    }
+    .chip-options { display: flex; gap: 4px; padding: 4px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; }
+    .chip-option {
+      padding: 6px 14px;
+      background: transparent;
+      border: none;
+      border-radius: 999px;
+      color: var(--text-2);
+      font-size: 12px; font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .chip-option:hover { color: var(--text); }
+    .chip-option.active {
+      background: var(--accent-grad);
+      color: white;
+      box-shadow: 0 2px 6px rgba(167, 139, 250, 0.3);
+    }
+
+    .date-inline {
+      display: flex; gap: 6px; align-items: center;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 4px 8px;
+    }
+    .date-inline input {
+      background: transparent; border: none; outline: none;
+      color: var(--text); font-size: 12px;
+      padding: 4px 6px; width: 130px;
+    }
+
+    /* ============== KPI grid ============== */
+    .kpi-section h3 {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 600;
+      margin: 0 0 10px;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .kpi {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .kpi:hover { transform: translateY(-2px); border-color: var(--border-strong); }
+    .kpi-label {
+      font-size: 11px; color: var(--text-2);
+      margin-bottom: 6px; font-weight: 500;
+    }
+    .kpi-value {
+      font-size: 22px; font-weight: 700;
+      letter-spacing: -0.01em;
+      font-variant-numeric: tabular-nums;
+      color: var(--text); line-height: 1.1;
+    }
+    .kpi-delta {
+      margin-top: 6px;
+      font-size: 12px; font-weight: 600;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .kpi-delta.up   { color: var(--success); }
+    .kpi-delta.down { color: var(--danger); }
+    .kpi-delta.flat { color: var(--muted); }
+    .kpi-delta .compare { color: var(--muted); font-weight: 400; }
+    .kpi.invert .kpi-delta.up { color: var(--danger); }
+    .kpi.invert .kpi-delta.down { color: var(--success); }
+
+    /* ============== Tile (used for funnel, tables, charts) ============== */
+    .tile {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+    .tile-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px;
+    }
+    .tile-title-block .title { font-size: 14px; font-weight: 600; }
+    .tile-title-block .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .tile-action { color: var(--accent); font-size: 12px; cursor: pointer; }
+    .tile-action:hover { text-decoration: underline; }
+    .tile-body { padding: 16px 18px; }
+
+    /* ============== Funnel ============== */
+    .funnel { display: flex; flex-direction: column; gap: 0; }
+    .funnel-row {
+      display: grid;
+      grid-template-columns: 160px 1fr 80px 80px 70px;
+      gap: 14px;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .funnel-row:last-child { border-bottom: none; }
+    .funnel-step { font-size: 13px; font-weight: 500; }
+    .funnel-bar-wrap {
+      position: relative;
+      height: 28px;
+      background: var(--surface-2);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .funnel-bar {
+      position: absolute;
+      top: 0; bottom: 0; left: 0;
+      background: linear-gradient(90deg, rgba(167,139,250,0.7) 0%, rgba(96,165,250,0.7) 100%);
+      border-radius: 6px;
+      transition: width 0.4s ease;
+    }
+    .funnel-bar-text {
+      position: absolute;
+      top: 50%; left: 12px;
+      transform: translateY(-50%);
+      font-size: 12px; font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: white;
+      mix-blend-mode: difference;
+      white-space: nowrap;
+    }
+    .funnel-pct {
+      text-align: right;
+      font-size: 12.5px;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-2);
+    }
+    .funnel-drop {
+      text-align: right;
+      font-size: 12.5px; font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .drop-down { color: var(--danger); }
+    .drop-flat { color: var(--muted); }
+    .drop-good { color: var(--success); }
+
+    .funnel-summary {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: var(--surface-2);
+      border-left: 3px solid var(--accent);
+      border-radius: 4px;
+      font-size: 12.5px;
+      color: var(--text-2);
+    }
+    .funnel-summary strong { color: var(--text); font-weight: 600; }
+
+    /* ============== Tables ============== */
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    table.data-table th {
+      text-align: left;
+      color: var(--muted);
+      font-weight: 500; font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    table.data-table td {
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--border);
+      font-variant-numeric: tabular-nums;
+    }
+    table.data-table tr:last-child td { border-bottom: none; }
+    table.data-table tr:hover td { background: var(--surface-2); }
+    .num { text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      background: var(--surface-3);
+      border-radius: 4px;
+      font-size: 11px;
+      color: var(--text-2);
+    }
+    .pill.green { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+    .pill.amber { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+    .pill.red   { background: rgba(239, 68, 68, 0.15);  color: var(--danger); }
+
+    /* ============== Two-column layout ============== */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    /* ============== Chat panel + FAB ============== */
+    .chat-fab {
+      position: fixed;
+      bottom: 24px; right: 24px;
+      padding: 12px 18px;
+      background: var(--accent-grad);
+      color: white;
+      border: none;
+      border-radius: 999px;
+      font-size: 13px; font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 6px 24px rgba(167, 139, 250, 0.45);
+      display: inline-flex; align-items: center; gap: 8px;
+      transition: transform 0.15s, opacity 0.2s;
+      z-index: 50;
+    }
+    .chat-fab:hover { transform: translateY(-2px); }
+    .layout.chat-open .chat-fab { opacity: 0; pointer-events: none; transform: scale(0.8); }
+
+    .chat-panel {
+      position: fixed;
+      top: 0; right: 0; bottom: 0;
+      width: var(--chat-w);
+      background: var(--bg);
+      border-left: 1px solid var(--border);
+      box-shadow: -8px 0 32px rgba(0, 0, 0, 0.4);
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 100;
+      display: flex; flex-direction: column;
+    }
+    .chat-panel.open { transform: translateX(0); }
+    .chat-header {
+      flex: 0 0 auto;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--surface);
+    }
+    .chat-header-title {
+      font-weight: 600; font-size: 14px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .chat-header-title .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--success); box-shadow: 0 0 8px var(--success);
+    }
+    .chat-close {
+      width: 32px; height: 32px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-2);
+      cursor: pointer;
+      display: grid; place-items: center;
+      transition: all 0.15s;
+    }
+    .chat-close:hover { background: var(--surface-2); color: var(--text); border-color: var(--border-strong); }
+    .chat-frame { flex: 1; min-height: 0; width: 100%; border: 0; }
+
+    .skeleton {
+      background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface-3) 50%, var(--surface-2) 100%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: var(--radius-sm);
+      width: 100%; height: 100%; min-height: 60px;
+    }
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 30px; }
+
+    @media (max-width: 1300px) {
+      .layout.chat-open { padding-right: 0; }
+      .chat-panel.open { box-shadow: -16px 0 60px rgba(0, 0, 0, 0.7); }
+    }
+    @media (max-width: 1100px) {
+      :root { --chat-w: 100vw; }
+      .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .two-col { grid-template-columns: 1fr; }
+      .funnel-row { grid-template-columns: 110px 1fr 60px 60px 60px; gap: 8px; }
+    }
+
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+      background: var(--surface-3); border-radius: 10px;
+      border: 2px solid var(--bg);
+    }
+  </style>
+</head>
+<body>
+  <div class="layout" id="layout">
+    <div class="page-wrap">
+      <div class="page">
+        <!-- Top tabs (only Web CR works for now; rest are placeholders matching the screenshot) -->
+        <div class="top-tabs">
+          <button class="top-tab disabled" title="Coming soon">Overview</button>
+          <button class="top-tab active">Web CR</button>
+          <button class="top-tab disabled" title="Coming soon">App CR</button>
+          <button class="top-tab disabled" title="Coming soon">RTO</button>
+          <button class="top-tab disabled" title="Coming soon">Repeat</button>
+          <button class="top-tab disabled" title="Coming soon">Meta perf.</button>
+          <button class="top-tab disabled" title="Coming soon">Supply chain</button>
+          <span class="period-label">
+            <span id="period-text">Last 30 days</span>
+          </span>
+        </div>
+
+        <!-- Filters: device chips + date -->
+        <div class="chip-row">
+          <div class="chip-group">
+            <span class="chip-group-label">Device</span>
+            <div class="chip-options" id="device-chips">
+              <button class="chip-option active" data-v="">All</button>
+            </div>
+          </div>
+          <div class="chip-group">
+            <span class="chip-group-label">Channel</span>
+            <div class="chip-options" id="channel-chips">
+              <button class="chip-option active" data-v="">All</button>
+            </div>
+          </div>
+          <div class="chip-group" style="margin-left:auto;">
+            <span class="chip-group-label">Range</span>
+            <div class="date-inline">
+              <input type="date" id="f-start">
+              <span style="color:var(--muted);">→</span>
+              <input type="date" id="f-end">
+            </div>
+          </div>
+        </div>
+
+        <!-- KPIs -->
+        <div class="kpi-section">
+          <h3>Headline</h3>
+          <div class="kpi-grid" id="kpis"></div>
+        </div>
+
+        <!-- Funnel -->
+        <div class="tile">
+          <div class="tile-header">
+            <div class="tile-title-block">
+              <div class="title">Web funnel</div>
+              <div class="sub" id="funnel-sub">8-step session-to-purchase</div>
+            </div>
+            <button class="tile-action" onclick="askChat('Where is the biggest drop-off in our web funnel and why?')">Investigate biggest leak →</button>
+          </div>
+          <div class="tile-body" id="funnel"><div class="skeleton" style="min-height:200px;"></div></div>
+        </div>
+
+        <!-- Web CR by traffic source -->
+        <div class="tile">
+          <div class="tile-header">
+            <div class="tile-title-block">
+              <div class="title">Web CR by traffic source</div>
+              <div class="sub">Sessions, conversion rate, AOV and revenue per session</div>
+            </div>
+          </div>
+          <div class="tile-body" id="by-source-tbl" style="padding:0;">
+            <div class="skeleton" style="margin:18px;"></div>
+          </div>
+        </div>
+
+        <!-- CR by device + by country side-by-side -->
+        <div class="two-col">
+          <div class="tile">
+            <div class="tile-header">
+              <div class="tile-title-block">
+                <div class="title">CR by device</div>
+                <div class="sub">Conversion comparison across device categories</div>
+              </div>
+            </div>
+            <div class="tile-body" id="by-device-tbl" style="padding:0;">
+              <div class="skeleton" style="margin:18px;"></div>
+            </div>
+          </div>
+          <div class="tile">
+            <div class="tile-header">
+              <div class="tile-title-block">
+                <div class="title">CR by country</div>
+                <div class="sub">Top 10 countries by sessions</div>
+              </div>
+            </div>
+            <div class="tile-body" id="by-country-tbl" style="padding:0;">
+              <div class="skeleton" style="margin:18px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top landing pages -->
+        <div class="tile">
+          <div class="tile-header">
+            <div class="tile-title-block">
+              <div class="title">Top landing pages by performance</div>
+              <div class="sub">Highest-traffic entry points and their conversion rate</div>
+            </div>
+          </div>
+          <div class="tile-body" id="landing-tbl" style="padding:0;">
+            <div class="skeleton" style="margin:18px;"></div>
+          </div>
+        </div>
+
+        <!-- CR by hour + Daily CR trend -->
+        <div class="tile">
+          <div class="tile-header">
+            <div class="tile-title-block">
+              <div class="title">CR by hour of day</div>
+              <div class="sub">When do sessions and CR peak?</div>
+            </div>
+          </div>
+          <div class="tile-body" id="hour-chart" style="height:300px;"><div class="skeleton"></div></div>
+        </div>
+
+        <div class="tile">
+          <div class="tile-header">
+            <div class="tile-title-block">
+              <div class="title">Daily CR trend</div>
+              <div class="sub" id="trend-sub">—</div>
+            </div>
+          </div>
+          <div class="tile-body" id="trend-chart" style="height:280px;"><div class="skeleton"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="chat-fab" onclick="openChat()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    Ask the data
+  </button>
+
+  <aside class="chat-panel" id="chat-panel">
+    <header class="chat-header">
+      <div class="chat-header-title">
+        <span class="dot"></span>
+        <span>Data Agent</span>
+      </div>
+      <button class="chat-close" onclick="closeChat()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </header>
+    <iframe class="chat-frame" id="chat-frame" src="about:blank"></iframe>
+  </aside>
+
+  <script>
+    // ---------- Chat ----------
+    const layoutEl = document.getElementById("layout");
+    const chatPanel = document.getElementById("chat-panel");
+    const chatFrame = document.getElementById("chat-frame");
+
+    function openChat() {
+      if (!chatFrame.src || chatFrame.src.endsWith("about:blank")) {
+        chatFrame.src = "/?embedded=1";
+      }
+      layoutEl.classList.add("chat-open");
+      chatPanel.classList.add("open");
+    }
+    function closeChat() {
+      layoutEl.classList.remove("chat-open");
+      chatPanel.classList.remove("open");
+    }
+    function askChat(question) {
+      openChat();
+      // Simple deep link approach: append ?q= to the iframe URL
+      try {
+        const url = new URL(chatFrame.src, window.location.origin);
+        url.searchParams.set("q", question);
+        chatFrame.src = url.toString();
+      } catch {}
+    }
+    window.addEventListener("keydown", e => {
+      if (e.key === "Escape" && chatPanel.classList.contains("open")) closeChat();
+    });
+
+    // ---------- Helpers ----------
+    const $ = s => document.querySelector(s);
+    const fmtINR = n => {
+      if (n == null || isNaN(n)) return "—";
+      const abs = Math.abs(n);
+      if (abs >= 1e7) return "₹" + (n / 1e7).toFixed(2) + " Cr";
+      if (abs >= 1e5) return "₹" + (n / 1e5).toFixed(2) + " L";
+      if (abs >= 1e3) return "₹" + (n / 1e3).toFixed(1) + "K";
+      return "₹" + Math.round(n).toLocaleString("en-IN");
+    };
+    const fmtCompactNum = n => {
+      if (n == null || isNaN(n)) return "—";
+      const abs = Math.abs(n);
+      if (abs >= 1e7) return (n / 1e7).toFixed(2) + " Cr";
+      if (abs >= 1e5) return (n / 1e5).toFixed(2) + " L";
+      if (abs >= 1e3) return (n / 1e3).toFixed(1) + "K";
+      return n.toLocaleString("en-IN");
+    };
+    const fmtPct = (n, dp=1) => n == null ? "—" : (n * 100).toFixed(dp) + "%";
+    const fmtPctShort = n => n == null ? "—" : (n * 100).toFixed(1) + "%";
+    const fmtDelta = n => {
+      if (n == null) return "—";
+      const v = n * 100;
+      return (v >= 0 ? "+" : "") + v.toFixed(1) + "%";
+    };
+    function todayISO() { return new Date().toISOString().slice(0, 10); }
+    function daysAgoISO(d) {
+      const dt = new Date(); dt.setDate(dt.getDate() - d);
+      return dt.toISOString().slice(0, 10);
+    }
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+    }
+
+    const state = {
+      start_date: daysAgoISO(30),
+      end_date: todayISO(),
+      devices: null,
+      channels: null,
+    };
+
+    init();
+    async function init() {
+      $("#f-start").value = state.start_date;
+      $("#f-end").value = state.end_date;
+      $("#f-start").addEventListener("change", e => { state.start_date = e.target.value; reload(); });
+      $("#f-end").addEventListener("change",   e => { state.end_date   = e.target.value; reload(); });
+
+      await loadFilterOptions();
+      await reload();
+    }
+
+    async function loadFilterOptions() {
+      try {
+        const r = await fetch("/web-cr/filter-options");
+        if (!r.ok) return;
+        const data = await r.json();
+        renderChips("#device-chips",  data.devices  || [], "devices");
+        renderChips("#channel-chips", data.channels || [], "channels");
+      } catch (e) { console.warn(e); }
+    }
+
+    function renderChips(sel, options, stateKey) {
+      const wrap = $(sel);
+      const html = `<button class="chip-option active" data-v="">All</button>` +
+        options.map(o => `<button class="chip-option" data-v="${escapeHtml(o)}">${escapeHtml(o)}</button>`).join("");
+      wrap.innerHTML = html;
+      wrap.querySelectorAll(".chip-option").forEach(btn => {
+        btn.addEventListener("click", () => {
+          wrap.querySelectorAll(".chip-option").forEach(x => x.classList.remove("active"));
+          btn.classList.add("active");
+          const v = btn.dataset.v;
+          state[stateKey] = v ? [v] : null;
+          reload();
+        });
+      });
+    }
+
+    async function reload() {
+      const periodDays = (new Date(state.end_date) - new Date(state.start_date)) / 86400000 + 1;
+      $("#period-text").textContent = `Last ${periodDays} day${periodDays === 1 ? "" : "s"}`;
+
+      $("#kpis").innerHTML = kpiSkeletons();
+      ["#funnel", "#by-source-tbl", "#by-device-tbl", "#by-country-tbl", "#landing-tbl"]
+        .forEach(s => { $(s).innerHTML = '<div class="skeleton" style="margin:18px;min-height:120px;"></div>'; });
+      $("#hour-chart").innerHTML  = '<div class="skeleton"></div>';
+      $("#trend-chart").innerHTML = '<div class="skeleton"></div>';
+
+      const params = new URLSearchParams({
+        start_date: state.start_date, end_date: state.end_date,
+      });
+      (state.channels || []).forEach(v => params.append("channel_groups", v));
+      (state.devices  || []).forEach(v => params.append("devices", v));
+
+      try {
+        const res = await fetch(`/web-cr?${params}`);
+        if (!res.ok) {
+          const t = await res.text();
+          throw new Error(t || `${res.status} ${res.statusText}`);
+        }
+        const data = await res.json();
+        renderKpis(data.overview);
+        renderFunnel(data.funnel);
+        renderSourceTable(data.by_source);
+        renderDeviceTable(data.by_device);
+        renderCountryTable(data.by_country);
+        renderLandingTable(data.landing_pages);
+        renderHour(data.by_hour);
+        renderTrend(data.cr_trend);
+      } catch (err) {
+        console.error(err);
+        document.querySelectorAll(".tile-body").forEach(el => {
+          if (!el.querySelector(".skeleton")) return;
+          el.innerHTML = `<div class="empty">Error: ${escapeHtml(err.message)}</div>`;
+        });
+      }
+    }
+
+    // ---------- KPIs ----------
+    function kpiSkeletons() {
+      return Array(8).fill(0).map(() => `
+        <div class="kpi"><div class="kpi-label" style="opacity:0.4;">…</div>
+        <div class="skeleton" style="height:24px;width:60%;border-radius:6px;min-height:24px;margin-top:6px;"></div></div>
+      `).join("");
+    }
+
+    function renderKpis(o) {
+      const c = o.current, d = o.deltas;
+      const cards = [
+        { label: "Sessions",          value: fmtCompactNum(c.sessions),            delta: d.sessions,            invert: false },
+        { label: "Conversion Rate",   value: fmtPct(c.cr, 2),                       delta: d.cr,                  invert: false, accent: true },
+        { label: "AOV",               value: fmtINR(c.aov),                         delta: d.aov,                 invert: false },
+        { label: "Revenue / session", value: fmtINR(c.revenue_per_session),         delta: d.revenue_per_session, invert: false },
+        { label: "Purchases",         value: fmtCompactNum(c.purchases),            delta: d.purchases,           invert: false },
+        { label: "Revenue",           value: fmtINR(c.revenue),                     delta: d.revenue,             invert: false },
+        { label: "Daily avg sessions",value: fmtCompactNum(c.daily_avg_sessions),   delta: d.daily_avg_sessions,  invert: false },
+        { label: "Daily avg revenue", value: fmtINR(c.daily_avg_revenue),           delta: d.daily_avg_revenue,   invert: false },
+      ];
+      $("#kpis").innerHTML = cards.map(card => {
+        const dv = card.delta;
+        const cls = dv == null ? "flat" : (dv > 0.001 ? "up" : (dv < -0.001 ? "down" : "flat"));
+        const arrow = cls === "up" ? "▲" : cls === "down" ? "▼" : "─";
+        return `
+          <div class="kpi ${card.invert ? 'invert' : ''}">
+            <div class="kpi-label">${card.label}</div>
+            <div class="kpi-value">${card.value}</div>
+            <div class="kpi-delta ${cls}">
+              ${arrow} ${fmtDelta(dv)}
+              <span class="compare">${escapeHtml(o.compare_label || "")}</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // ---------- Funnel ----------
+    function renderFunnel(steps) {
+      if (!steps || !steps.length) { $("#funnel").innerHTML = '<div class="empty">No data</div>'; return; }
+      const sessions = steps[0].count || 1;
+      // Find biggest drop step (skip first since no drop applies)
+      let biggest = { step: null, drop: 0 };
+      for (let i = 1; i < steps.length; i++) {
+        if (steps[i].drop > biggest.drop) biggest = steps[i];
+      }
+      const rows = steps.map(s => {
+        const widthPct = Math.max(2, (s.count / sessions) * 100);
+        const dropClass = s.drop == null ? "drop-flat" :
+          (s.drop > 0.5 ? "drop-down" : s.drop > 0.2 ? "drop-down" : s.drop > 0 ? "drop-flat" : "drop-good");
+        const dropText = s.drop == null || s === steps[0] ? "—" : "▼ " + (s.drop * 100).toFixed(1) + "%";
+        return `
+          <div class="funnel-row">
+            <div class="funnel-step">${escapeHtml(s.step)}</div>
+            <div class="funnel-bar-wrap">
+              <div class="funnel-bar" style="width:${widthPct.toFixed(2)}%;"></div>
+              <div class="funnel-bar-text">${fmtCompactNum(s.count)}</div>
+            </div>
+            <div class="funnel-pct">${fmtPctShort(s.overall_pct)}</div>
+            <div class="funnel-pct">${s.step_conversion === 1 ? '—' : fmtPctShort(s.step_conversion)}</div>
+            <div class="funnel-drop ${dropClass}">${dropText}</div>
+          </div>
+        `;
+      }).join("");
+
+      const headers = `
+        <div class="funnel-row" style="border-bottom:1px solid var(--border);padding-bottom:8px;">
+          <div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.06em;">Step</div>
+          <div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.06em;">Volume</div>
+          <div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.06em;text-align:right;">% of sess</div>
+          <div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.06em;text-align:right;">Step CR</div>
+          <div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.06em;text-align:right;">Drop</div>
+        </div>
+      `;
+      const summary = biggest.step ? `
+        <div class="funnel-summary">
+          Biggest single leak: <strong>${escapeHtml(biggest.step)}</strong>
+          drops <strong>${(biggest.drop * 100).toFixed(1)}%</strong> from the previous step.
+          Closing this gap would unlock additional conversions every day.
+        </div>
+      ` : "";
+      $("#funnel").innerHTML = `<div class="funnel">${headers}${rows}</div>${summary}`;
+    }
+
+    // ---------- Tables ----------
+    function trafficLightCR(cr, avg) {
+      if (cr == null || avg == null) return "";
+      const ratio = cr / avg;
+      if (ratio >= 1.1) return "green";
+      if (ratio <  0.9) return "red";
+      return "amber";
+    }
+
+    function renderSourceTable(rows) {
+      const el = $("#by-source-tbl");
+      if (!rows || !rows.length) { el.innerHTML = '<div class="empty">No data</div>'; return; }
+      const totalSessions = rows.reduce((a, r) => a + (r.sessions || 0), 0);
+      const totalPurchases = rows.reduce((a, r) => a + (r.purchases || 0), 0);
+      const avgCR = totalSessions ? totalPurchases / totalSessions : 0;
+      el.innerHTML = `
+        <table class="data-table">
+          <thead><tr>
+            <th>Source</th><th class="num">Sessions</th><th class="num">CR</th>
+            <th class="num">AOV</th><th class="num">Rev / sess</th><th class="num">Revenue</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td>${escapeHtml(r.source)}</td>
+                <td class="num">${fmtCompactNum(r.sessions)}</td>
+                <td class="num"><span class="pill ${trafficLightCR(r.cr, avgCR)}">${fmtPctShort(r.cr)}</span></td>
+                <td class="num">${fmtINR(r.aov)}</td>
+                <td class="num">${fmtINR(r.revenue_per_session)}</td>
+                <td class="num">${fmtINR(r.revenue)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function renderDeviceTable(rows) {
+      const el = $("#by-device-tbl");
+      if (!rows || !rows.length) { el.innerHTML = '<div class="empty">No data</div>'; return; }
+      const totalSessions = rows.reduce((a, r) => a + (r.sessions || 0), 0);
+      const totalPurchases = rows.reduce((a, r) => a + (r.purchases || 0), 0);
+      const avgCR = totalSessions ? totalPurchases / totalSessions : 0;
+      el.innerHTML = `
+        <table class="data-table">
+          <thead><tr>
+            <th>Device</th><th class="num">Sessions</th><th class="num">CR</th><th class="num">AOV</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td>${escapeHtml(r.device)}</td>
+                <td class="num">${fmtCompactNum(r.sessions)}</td>
+                <td class="num"><span class="pill ${trafficLightCR(r.cr, avgCR)}">${fmtPctShort(r.cr)}</span></td>
+                <td class="num">${fmtINR(r.aov)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function renderCountryTable(rows) {
+      const el = $("#by-country-tbl");
+      if (!rows || !rows.length) { el.innerHTML = '<div class="empty">No data</div>'; return; }
+      const totalSessions = rows.reduce((a, r) => a + (r.sessions || 0), 0);
+      const totalPurchases = rows.reduce((a, r) => a + (r.purchases || 0), 0);
+      const avgCR = totalSessions ? totalPurchases / totalSessions : 0;
+      el.innerHTML = `
+        <table class="data-table">
+          <thead><tr>
+            <th>Country</th><th class="num">Sessions</th><th class="num">CR</th><th class="num">Rev/sess</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td>${escapeHtml(r.country)}</td>
+                <td class="num">${fmtCompactNum(r.sessions)}</td>
+                <td class="num"><span class="pill ${trafficLightCR(r.cr, avgCR)}">${fmtPctShort(r.cr)}</span></td>
+                <td class="num">${fmtINR(r.revenue_per_session)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function renderLandingTable(rows) {
+      const el = $("#landing-tbl");
+      if (!rows || !rows.length) { el.innerHTML = '<div class="empty">No data</div>'; return; }
+      const totalSessions = rows.reduce((a, r) => a + (r.sessions || 0), 0);
+      const totalPurchases = rows.reduce((a, r) => a + (r.purchases || 0), 0);
+      const avgCR = totalSessions ? totalPurchases / totalSessions : 0;
+      el.innerHTML = `
+        <table class="data-table">
+          <thead><tr>
+            <th>Landing page</th><th class="num">Sessions</th><th class="num">CR</th>
+            <th class="num">AOV</th><th class="num">Revenue</th><th class="num">Status</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(r => {
+              const ratio = avgCR ? r.cr / avgCR : 1;
+              const status = ratio >= 1.1 ? ["Healthy", "green"] :
+                             ratio >= 0.9 ? ["OK", "amber"] :
+                             ratio >= 0.6 ? ["Slow", "amber"] : ["Critical", "red"];
+              return `
+                <tr>
+                  <td style="font-family:'JetBrains Mono',monospace;font-size:12px;">${escapeHtml(r.landing_page)}</td>
+                  <td class="num">${fmtCompactNum(r.sessions)}</td>
+                  <td class="num">${fmtPctShort(r.cr)}</td>
+                  <td class="num">${fmtINR(r.aov)}</td>
+                  <td class="num">${fmtINR(r.revenue)}</td>
+                  <td class="num"><span class="pill ${status[1]}">${status[0]}</span></td>
+                </tr>`;
+            }).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    // ---------- Hour-of-day combo chart ----------
+    function renderHour(rows) {
+      const el = $("#hour-chart");
+      if (!rows || !rows.length) { el.innerHTML = '<div class="empty">No data</div>'; return; }
+      el.innerHTML = "";
+      const spec = {
+        $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+        data: { values: rows },
+        autosize: { type: "fit", contains: "padding", resize: true },
+        background: "transparent", height: 270,
+        layer: [
+          {
+            mark: { type: "bar", color: "#60a5fa", opacity: 0.7, cornerRadiusEnd: 3 },
+            encoding: {
+              x: { field: "hour", type: "ordinal", title: "Hour",
+                   axis: { labelColor:"#b4b4c0", titleColor:"#b4b4c0", domainColor:"#383844", tickColor:"#383844" } },
+              y: { field: "sessions", type: "quantitative", title: "Sessions",
+                   axis: { format:"~s", labelColor:"#b4b4c0", titleColor:"#b4b4c0",
+                           gridColor:"#26262f", domainColor:"#383844", tickColor:"#383844" } },
+              tooltip: [
+                { field: "hour", title: "Hour" },
+                { field: "sessions", type: "quantitative", title: "Sessions", format: "," },
+                { field: "purchases", type: "quantitative", title: "Purchases", format: "," },
+                { field: "cr", type: "quantitative", title: "CR", format: ".2%" },
+              ],
+            },
+          },
+          {
+            mark: { type: "line", color: "#10b981", strokeWidth: 2.5, point: { color: "#10b981", size: 30 } },
+            encoding: {
+              x: { field: "hour", type: "ordinal" },
+              y: { field: "cr", type: "quantitative", title: "CR",
+                   axis: { format: ".0%", labelColor:"#10b981", titleColor:"#10b981",
+                           grid: false, domainColor:"#383844", tickColor:"#383844", orient: "right" } },
+            },
+          },
+        ],
+        resolve: { scale: { y: "independent" } },
+        config: { view: { stroke: "transparent" } },
+      };
+      vegaEmbed(el, spec, { actions: false, renderer: "svg" }).catch(e => console.error(e));
+    }
+
+    // ---------- Daily CR trend ----------
+    function renderTrend(rows) {
+      const el = $("#trend-chart");
+      if (!rows || !rows.length) { el.innerHTML = '<div class="empty">No data</div>'; return; }
+      el.innerHTML = "";
+      const avg = rows.reduce((a, r) => a + (r.cr || 0), 0) / rows.length;
+      $("#trend-sub").textContent = `Average CR: ${fmtPct(avg, 2)} · ${rows.length} days`;
+      const spec = {
+        $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+        data: { values: rows },
+        autosize: { type: "fit", contains: "padding", resize: true },
+        background: "transparent", height: 250,
+        layer: [
+          {
+            mark: { type: "area",
+                    line: { color: "#a78bfa", strokeWidth: 2.5 },
+                    color: { x1:1,y1:1,x2:1,y2:0, gradient:"linear",
+                             stops:[{offset:0,color:"rgba(167,139,250,0)"},{offset:1,color:"rgba(167,139,250,0.4)"}] } },
+            encoding: {
+              x: { field: "date", type: "temporal", title: null,
+                   axis: { format: "%b %d", labelColor:"#b4b4c0", domainColor:"#383844", tickColor:"#383844" } },
+              y: { field: "cr", type: "quantitative", title: "Conversion Rate",
+                   axis: { format: ".1%", labelColor:"#b4b4c0", titleColor:"#b4b4c0",
+                           gridColor:"#26262f", domainColor:"#383844", tickColor:"#383844" } },
+              tooltip: [
+                { field: "date", type: "temporal", title: "Date", format: "%b %d, %Y" },
+                { field: "sessions", type: "quantitative", title: "Sessions", format: "," },
+                { field: "purchases", type: "quantitative", title: "Purchases", format: "," },
+                { field: "cr", type: "quantitative", title: "CR", format: ".2%" },
+                { field: "revenue", type: "quantitative", title: "Revenue", format: ",.0f" },
+              ],
+            },
+          },
+          {
+            mark: { type: "rule", strokeDash: [4, 4], color: "#6c6c7a" },
+            encoding: { y: { datum: avg } },
+          },
+        ],
+        config: { view: { stroke: "transparent" } },
+      };
+      vegaEmbed(el, spec, { actions: false, renderer: "svg" }).catch(e => console.error(e));
+    }
+  </script>
+</body>
+</html>

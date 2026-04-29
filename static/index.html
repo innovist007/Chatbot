@@ -13,12 +13,12 @@
   <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
   <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/languages/sql.min.js"></script>
 
   <style>
-    :root {
+    /* :root {
       --bg: #08080c;
       --sidebar-bg: linear-gradient(180deg, #15151f 0%, #0a0a10 100%);
       --surface: #11111a;
@@ -39,7 +39,30 @@
       --radius: 12px;
       --radius-sm: 8px;
       --side-chat-w: 420px;
-    }
+    } */
+
+    :root {
+  /* Light theme - matching dashboard */
+  --bg: #fafafa;
+  --sidebar-bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f5f5f5;
+  --surface-3: #efefef;
+  --border: #e5e5e5;
+  --border-strong: #d4d4d4;
+  --text: #171717;
+  --text-2: #525252;
+  --muted: #737373;
+  --dim: #a3a3a3;
+  --accent: #3b82f6;
+  --accent-2: #2563eb;
+  --accent-soft: #eff6ff;
+  --accent-border: rgba(59, 130, 246, 0.2);
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  /* ... rest stays same */
+}
 
     * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
@@ -306,7 +329,7 @@
       border-bottom: 1px solid var(--border);
       display: flex; align-items: center; justify-content: space-between;
       gap: 12px;
-      background: rgba(8, 8, 12, 0.7);
+      background: rgba(255, 255, 255, 0.8);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       z-index: 5;

@@ -3,5 +3,6 @@ uvicorn[standard]>=0.27
 pydantic>=2.6
 pydantic-settings>=2.2
 google-cloud-geminidataanalytics>=0.2.0
+google-cloud-bigquery>=3.17
 google-auth>=2.28
 python-dotenv>=1.0
