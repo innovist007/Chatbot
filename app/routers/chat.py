@@ -1,60 +1,3 @@
-# """Chat endpoints — talk to the data agent."""
-# import logging
-
-# from fastapi import APIRouter, Depends, HTTPException, status
-
-# from app.deps import get_agent_service
-# from app.schemas import AgentInfoResponse, AskRequest, AskResponse
-# from app.services.agent_service import AgentService
-
-# logger = logging.getLogger(__name__)
-
-# router = APIRouter(prefix="/chat", tags=["chat"])
-
-
-# @router.post(
-#     "/ask",
-#     response_model=AskResponse,
-#     summary="Ask the data agent a natural-language question",
-# )
-# def ask(
-#     payload: AskRequest,
-#     service: AgentService = Depends(get_agent_service),
-# ) -> AskResponse:
-#     try:
-#         result = service.ask(payload.question)
-#     except Exception as exc:  # noqa: BLE001
-#         logger.exception("Agent call failed")
-#         raise HTTPException(
-#             status_code=status.HTTP_502_BAD_GATEWAY,
-#             detail=f"Agent call failed: {exc}",
-#         ) from exc
-
-#     return AskResponse(**result)
-
-
-# @router.get(
-#     "/agent",
-#     response_model=AgentInfoResponse,
-#     summary="Fetch metadata about the configured data agent",
-# )
-# def agent_info(
-#     service: AgentService = Depends(get_agent_service),
-# ) -> AgentInfoResponse:
-#     try:
-#         info = service.get_agent_info()
-#     except Exception as exc:  # noqa: BLE001
-#         logger.exception("Failed to load agent info")
-#         raise HTTPException(
-#             status_code=status.HTTP_502_BAD_GATEWAY,
-#             detail=f"Could not load agent: {exc}",
-#         ) from exc
-
-#     return AgentInfoResponse(**info)
-
-
-
-
 """Chat endpoints — talk to the data agent."""
 import json
 import logging
@@ -63,12 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 
 from app.deps import get_agent_service
+from app.routers.auth import get_current_user
 from app.schemas import AgentInfoResponse, AskRequest, AskResponse
 from app.services.agent_service import AgentService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/chat", tags=["chat"])
+router = APIRouter(prefix="/chat", tags=["chat"], dependencies=[Depends(get_current_user)],)
 
 
 @router.post(

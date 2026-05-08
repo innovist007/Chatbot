@@ -5,9 +5,13 @@ Source: `innovist-master-data.analytics_432719895.data_table_session`
 All metrics here mirror the DAX measures from the existing Power BI dashboard
 so that numbers reconcile.
 """
+
 from __future__ import annotations
 
 import logging
+import hashlib
+import json
+import redis
 from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -36,6 +40,20 @@ class WebCRFilters:
         return replace(self,
                        start_date=self.start_date - timedelta(days=n),
                        end_date=self.end_date - timedelta(days=n))
+    
+    def cache_key(self, prefix: str) -> str:
+        """Generate deterministic cache key from filter values."""
+        parts = [
+            prefix,
+            self.start_date.isoformat(),
+            self.end_date.isoformat(),
+            ",".join(sorted(self.channel_groups or [])),
+            ",".join(sorted(self.devices or [])),
+            ",".join(sorted(self.countries or [])),
+        ]
+        key_string = "|".join(parts)
+        key_hash = hashlib.md5(key_string.encode()).hexdigest()[:12]
+        return f"webcr:{prefix}:{key_hash}"
 
 
 class WebCRService:
@@ -43,6 +61,83 @@ class WebCRService:
         self.settings = settings
         self.client = bigquery.Client(project=settings.gcp_project_id)
         self.table = "`innovist-master-data.analytics_432719895.data_table_session`"
+        
+        # Initialize Redis
+        try:
+            self.redis_client = redis.Redis(
+                host='localhost',
+                port=6379,
+                db=0,
+                decode_responses=True,
+                socket_connect_timeout=2
+            )
+            self.redis_client.ping()
+            self.cache_enabled = True
+            logger.info("✅ Redis cache connected successfully")
+            print("✅ Redis cache connected successfully")
+        except Exception as e:
+            logger.warning(f"⚠️  Redis unavailable, caching disabled: {e}")
+            print(f"⚠️  Redis unavailable, caching disabled: {e}")
+            self.redis_client = None
+            self.cache_enabled = False
+    
+    def _get_cache(self, key: str) -> Any | None:
+        """Get value from cache with console logging."""
+        if not self.cache_enabled:
+            return None
+        try:
+            data = self.redis_client.get(key)
+            if data:
+                logger.info(f"🎯 Cache HIT: {key}")
+                print(f"🎯 Cache HIT: {key}")
+                return json.loads(data)
+            logger.info(f"❌ Cache MISS: {key}")
+            print(f"❌ Cache MISS: {key}")
+            return None
+        except Exception as e:
+            logger.error(f"Cache get error: {e}")
+            print(f"❌ Cache error: {e}")
+            return None
+    
+    def _set_cache(self, key: str, value: Any, ttl: int = 3600) -> None:
+        """Set value in cache with TTL and console logging."""
+        if not self.cache_enabled:
+            return
+        try:
+            self.redis_client.setex(key, ttl, json.dumps(value, default=str))
+            logger.info(f"💾 Cache SET: {key} (TTL: {ttl}s)")
+            print(f"💾 Cache SET: {key} (TTL: {ttl}s)")
+        except Exception as e:
+            logger.error(f"Cache set error: {e}")
+            print(f"❌ Cache set error: {e}")
+    
+    def get_latest_date(self) -> date | None:
+        """Get the most recent date with data."""
+        cache_key = "web_cr:latest_date"
+        cached = self._get_cache(cache_key)
+        if cached:
+            return date.fromisoformat(cached) if isinstance(cached, str) else cached
+        
+        sql = f"""
+        SELECT MAX(date) AS latest_date
+        FROM {self.table}
+        """
+        
+        rows = self._run(sql, [])
+        if not rows or not rows[0].get("latest_date"):
+            return None
+        
+        latest = rows[0]["latest_date"]
+        if isinstance(latest, str):
+            latest = date.fromisoformat(latest)
+        elif isinstance(latest, datetime):
+            latest = latest.date()
+
+# ✅ cache safely
+        self._set_cache(cache_key, latest.isoformat(), ttl=3600)
+        # Cache for 1 hour (data refreshes during day, but date doesn't change often)
+        # self._set_cache(cache_key, latest.isoformat() if hasattr(latest, 'isoformat') else str(latest), ttl=3600)
+        return latest
 
     # ------------------------------------------------------------------ helpers
     def _where(self, f: WebCRFilters) -> tuple[str, list]:
@@ -63,6 +158,8 @@ class WebCRService:
         return " AND ".join(clauses), params
 
     def _run(self, sql: str, params: list) -> list[dict[str, Any]]:
+        logger.info("🔍 Executing BigQuery query...")
+        print("🔍 Executing BigQuery query...")
         cfg = bigquery.QueryJobConfig(query_parameters=params)
         rows = self.client.query(sql, job_config=cfg).result()
         out: list[dict[str, Any]] = []
@@ -72,10 +169,17 @@ class WebCRService:
                 if isinstance(v, (date, datetime)):
                     d[k] = v.isoformat()
             out.append(d)
+        logger.info(f"✅ BigQuery returned {len(out)} rows")
+        print(f"✅ BigQuery returned {len(out)} rows")
         return out
 
     # -------------------------------------------------------- core aggregates
     def _aggregates(self, f: WebCRFilters) -> dict[str, float]:
+        cache_key = f.cache_key("agg")
+        cached = self._get_cache(cache_key)
+        if cached is not None:
+            return cached
+        
         where, params = self._where(f)
         sql = f"""
         SELECT
@@ -93,7 +197,10 @@ class WebCRService:
         WHERE {where}
         """
         rows = self._run(sql, params)
-        return {k: (v or 0) for k, v in (rows[0] if rows else {}).items()}
+        result = {k: (v or 0) for k, v in (rows[0] if rows else {}).items()}
+        
+        self._set_cache(cache_key, result, ttl=3600)
+        return result
 
     @staticmethod
     def _derive(a: dict[str, float]) -> dict[str, float]:
@@ -139,22 +246,31 @@ class WebCRService:
 
     # ===================================================================== KPIs
     def overview(self, f: WebCRFilters) -> dict[str, Any]:
+        cache_key = f.cache_key("overview")
+        cached = self._get_cache(cache_key)
+        if cached is not None:
+            return cached
+        
         curr = self._derive(self._aggregates(f))
         prev = self._derive(self._aggregates(f.previous_period()))
-        return {
+        result = {
             "current": curr,
             "previous": prev,
             "deltas": self._delta(curr, prev),
             "compare_label": f"vs prev. {f.length_days}d",
         }
+        
+        self._set_cache(cache_key, result, ttl=1800)
+        return result
 
     # ================================================================== Funnel
     def funnel(self, f: WebCRFilters) -> list[dict[str, Any]]:
-        """8-step funnel with drop %, step conversion, and overall conversion."""
+        cache_key = f.cache_key("funnel")
+        cached = self._get_cache(cache_key)
+        if cached is not None:
+            return cached
+        
         a = self._aggregates(f)
-
-        # Steps in order. `count` is absolute. We compute % vs prior step (drop)
-        # and % vs sessions (overall).
         sessions = a.get("sessions") or 0
         steps = [
             ("Sessions",        a.get("sessions"),         None),
@@ -176,15 +292,22 @@ class WebCRService:
             out.append({
                 "step": label,
                 "count": cnt_f,
-                "step_conversion": step_conv,   # vs previous step
-                "drop": drop_pct,                # 1 - step_conversion
-                "overall_pct": overall,          # vs sessions
+                "step_conversion": step_conv,
+                "drop": drop_pct,
+                "overall_pct": overall,
             })
             prev_count = cnt_f
+        
+        self._set_cache(cache_key, out, ttl=3600)
         return out
 
     # ============================================================== by source
     def by_source(self, f: WebCRFilters) -> list[dict[str, Any]]:
+        cache_key = f.cache_key("by_source")
+        cached = self._get_cache(cache_key)
+        if cached is not None:
+            return cached
+        
         where, params = self._where(f)
         sql = f"""
         SELECT
@@ -201,10 +324,17 @@ class WebCRService:
         ORDER BY sessions DESC
         LIMIT 20
         """
-        return self._run(sql, params)
+        result = self._run(sql, params)
+        self._set_cache(cache_key, result, ttl=3600)
+        return result
 
     # ============================================================== by device
     def by_device(self, f: WebCRFilters) -> list[dict[str, Any]]:
+        cache_key = f.cache_key("by_device")
+        cached = self._get_cache(cache_key)
+        if cached is not None:
+            return cached
+        
         where, params = self._where(f)
         sql = f"""
         SELECT
@@ -220,10 +350,17 @@ class WebCRService:
         GROUP BY device
         ORDER BY sessions DESC
         """
-        return self._run(sql, params)
+        result = self._run(sql, params)
+        self._set_cache(cache_key, result, ttl=3600)
+        return result
 
     # ============================================================ by country
     def by_country(self, f: WebCRFilters) -> list[dict[str, Any]]:
+        cache_key = f.cache_key("by_country")
+        cached = self._get_cache(cache_key)
+        if cached is not None:
+            return cached
+        
         where, params = self._where(f)
         sql = f"""
         SELECT
@@ -239,10 +376,17 @@ class WebCRService:
         ORDER BY sessions DESC
         LIMIT 10
         """
-        return self._run(sql, params)
+        result = self._run(sql, params)
+        self._set_cache(cache_key, result, ttl=3600)
+        return result
 
     # ======================================================= top landing pages
     def landing_pages(self, f: WebCRFilters) -> list[dict[str, Any]]:
+        cache_key = f.cache_key("landing")
+        cached = self._get_cache(cache_key)
+        if cached is not None:
+            return cached
+        
         where, params = self._where(f)
         sql = f"""
         SELECT
@@ -258,10 +402,17 @@ class WebCRService:
         ORDER BY sessions DESC
         LIMIT 15
         """
-        return self._run(sql, params)
+        result = self._run(sql, params)
+        self._set_cache(cache_key, result, ttl=3600)
+        return result
 
     # ============================================================== by hour
     def by_hour(self, f: WebCRFilters) -> list[dict[str, Any]]:
+        cache_key = f.cache_key("by_hour")
+        cached = self._get_cache(cache_key)
+        if cached is not None:
+            return cached
+        
         where, params = self._where(f)
         sql = f"""
         SELECT
@@ -274,10 +425,17 @@ class WebCRService:
         GROUP BY hour
         ORDER BY hour
         """
-        return self._run(sql, params)
+        result = self._run(sql, params)
+        self._set_cache(cache_key, result, ttl=3600)
+        return result
 
     # ============================================================ daily trend
     def cr_trend(self, f: WebCRFilters) -> list[dict[str, Any]]:
+        cache_key = f.cache_key("cr_trend")
+        cached = self._get_cache(cache_key)
+        if cached is not None:
+            return cached
+        
         where, params = self._where(f)
         sql = f"""
         SELECT
@@ -291,7 +449,9 @@ class WebCRService:
         GROUP BY date
         ORDER BY date
         """
-        return self._run(sql, params)
+        result = self._run(sql, params)
+        self._set_cache(cache_key, result, ttl=3600)
+        return result
 
     # ========================================================= filter options
     def filter_options(self) -> dict[str, list[str]]:

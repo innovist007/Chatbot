@@ -14,12 +14,12 @@ const TOP_NAV = [
 ];
 
 const SECOND_NAV = [
-  { to: "/overview", label: "Overview" },
+  { to: "/d2c-overview", label: "Overview", enabled: true },
   { to: "/web-cr", label: "Web CR", enabled: true },
-  { to: "/app-cr", label: "App CR" },
-  { to: "/rto", label: "D2C RTO" },
-  { to: "/repeat", label: "Repeat & retention" },
-  { to: "/promo", label: "Promo & basket" },
+  { to: "/app-cr", label: "App CR", enabled: true },
+  { to: "/rto", label: "D2C RTO", enabled: true },
+  { to: "/repeat", label: "Repeat & retention", enabled: true },
+  { to: "/promo", label: "Promo & basket", enabled: true },
 ];
 
 export function TwoTierNav({ 

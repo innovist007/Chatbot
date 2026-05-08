@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
-from app.routers import chat, dashboard, web_cr
+from app.routers import chat, d2c_rto, dashboard, web_cr,d2c_router,app_cr,auth;
 
 settings = get_settings()
 
@@ -39,6 +39,10 @@ app.add_middleware(
 app.include_router(chat.router)
 app.include_router(dashboard.router)
 app.include_router(web_cr.router)
+app.include_router(d2c_router.router)
+app.include_router(app_cr.router)
+app.include_router(auth.router)
+app.include_router(d2c_rto.router)
 
 # --- Serve the small HTML/JS client at /ui ---------------------------------
 UI_DIR = Path(__file__).parent.parent / "static"

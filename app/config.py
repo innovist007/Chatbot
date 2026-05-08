@@ -25,6 +25,20 @@ class Settings(BaseSettings):
     app_port: int = 8000
     log_level: str = "info"
 
+    # ============= NEW: OAuth & JWT Settings =============
+    # Google OAuth
+    google_client_id: str
+    google_client_secret: str
+    
+    # JWT for session tokens
+    jwt_secret_key: str
+    jwt_algorithm: str = "HS256"
+    jwt_expire_hours: int = 24
+    
+    # Domain restriction
+    allowed_email_domain: str = "onestolabs.com"
+    # =====================================================
+
     # ---------- Derived helpers ----------
     @property
     def billing_project(self) -> str:

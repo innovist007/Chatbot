@@ -2,16 +2,26 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { useState } from "react";
 import { TwoTierNav } from "@/components/TwoTierNav";
 import { ChatPanel } from "@/components/ChatPanel";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import WebCrPage from "@/pages/WebCrPage";
+import D2COverviewPage from "@/pages/D2COverviewPage";
+import AppCRPage from "./pages/AppCRPage";
+import LoginPage from "./pages/LoginPage";
+import D2CRtoPage from "./pages/D2CRtoPage";
+import PromoBasketPage from "./pages/PromoBasketPage";
+import RetentionPage from "./pages/RetentionPage";
 import { todayISO, daysAgoISO } from "@/lib/utils";
+import { useAuth } from "@/lib/AuthContext";
 
-export default function App() {
+// Main authenticated app layout
+function AuthenticatedApp() {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatQuery, setChatQuery] = useState(null);
-  const [chatWidth, setChatWidth] = useState(500); // Adjustable width
+  const [chatWidth, setChatWidth] = useState(500);
   const [startDate, setStartDate] = useState(daysAgoISO(30));
   const [endDate, setEndDate] = useState(todayISO());
   const [compareMode, setCompareMode] = useState("MoM");
+  const { user, logout } = useAuth();
 
   function askChat(question) {
     setChatQuery(question);
@@ -32,43 +42,118 @@ export default function App() {
         compareMode={compareMode}
         onCompareModeChange={setCompareMode}
         onAskBot={() => setChatOpen(true)}
+        user={user}
+        onLogout={logout}
       />
-
       <main
         className="flex-1 transition-[padding-right] duration-300"
-        style={{
-          paddingRight: chatOpen && window.innerWidth >= 1280 ? chatWidth : 0,
-        }}
+        style={{ paddingRight: chatOpen ? chatWidth : 0 }}
       >
         <Routes>
           <Route path="/" element={<Navigate to="/web-cr" replace />} />
-          <Route 
-            path="/web-cr" 
+          <Route
+            path="/web-cr"
             element={
-              <WebCrPage 
-                onAskChat={askChat}
+              <WebCrPage
                 startDate={startDate}
                 endDate={endDate}
                 compareMode={compareMode}
+                onAskChat={askChat}
               />
-            } 
-          />
-          <Route
-            path="*"
-            element={
-              <div className="p-12 text-center text-muted">Page not found.</div>
             }
           />
+          <Route
+            path="/d2c-overview"
+            element={
+              <D2COverviewPage
+                startDate={startDate}
+                endDate={endDate}
+                compareMode={compareMode}
+                onAskChat={askChat}
+              />
+            }
+          />
+          <Route
+            path="/app-cr"
+            element={
+              <AppCRPage
+                startDate={startDate}
+                endDate={endDate}
+                compareMode={compareMode}
+                onAskChat={askChat}
+              />
+            }
+          />
+          <Route
+            path="/rto"
+            element={
+              <D2CRtoPage
+                startDate={startDate}
+                endDate={endDate}
+                compareMode={compareMode}
+                onAskChat={askChat}
+              />
+            }
+          />
+          <Route path="/promo" 
+          element={<PromoBasketPage
+           onAskChat={askChat} 
+           startDate={startDate} 
+           endDate={endDate} 
+           compareMode={compareMode} />} 
+           />
+
+           <Route 
+    path="/repeat" 
+  element={
+    <RetentionPage 
+      onAskChat={askChat} 
+      startDate={startDate} 
+      endDate={endDate} 
+      compareMode={compareMode} 
+    />
+  } 
+/>
+
         </Routes>
       </main>
-
-      <ChatPanel
+      {/* <ChatPanel
         open={chatOpen}
         onClose={() => setChatOpen(false)}
-        deepLinkQuery={chatQuery}
+        initialQuery={chatQuery}
         width={chatWidth}
         onWidthChange={setChatWidth}
-      />
+      /> */}
+      <ChatPanel
+  open={chatOpen}
+  onClose={() => {
+    setChatOpen(false);
+    setChatQuery(null);
+  }}
+  deepLinkQuery={chatQuery}
+  width={chatWidth}
+  onWidthChange={setChatWidth}
+/>
     </div>
+  );
+}
+
+// Main app with routing
+export default function App() {
+  return (
+    <Routes>
+      {/* Public route - login page */}
+      <Route path="/login" element={<LoginPage />} />
+
+      {/* All other routes are protected */}
+      <Route
+        path="/*"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedApp />
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
   );
 }

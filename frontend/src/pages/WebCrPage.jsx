@@ -30,6 +30,10 @@ function generateKpiInsight(metricName, delta, data) {
     "Web CR": delta > 0 ? `CR improved ${mag}pp — funnel optimizations paying off.` : `CR dropped ${mag}pp — ${data?.funnel?.[1]?.step || 'funnel'} may be leaking.`,
     "Web AOV": delta > 0 ? `AOV up ${mag}% — customers buying premium.` : `AOV down ${mag}% — price sensitivity or product mix shift.`,
     "Revenue per session": delta > 0 ? `Revenue/session up ${mag}% — CR + AOV compounding.` : `Revenue efficiency down ${mag}% — fix CR or AOV.`,
+    "Daily avg sessions": delta > 0 ? `Daily sessions up ${mag}% — consistent traffic growth.` : `Daily sessions down ${mag}% — check daily traffic patterns.`,
+    "Daily avg revenue": delta > 0 ? `Daily revenue up ${mag}% — strong daily performance.` : `Daily revenue down ${mag}% — revenue per day declining.`,
+    "Daily avg orders": delta > 0 ? `Daily orders up ${mag}% — more conversions per day.` : `Daily orders down ${mag}% — conversion rate or traffic issue.`,
+    "Total revenue": delta > 0 ? `Total revenue up ${mag}% — overall business growing.` : `Total revenue down ${mag}% — revenue declined vs previous period.`,
   };
   return insights[metricName] || `${metricName} changed ${mag}%.`;
 }
@@ -40,6 +44,16 @@ export default function WebCrPage({ onAskChat, startDate, endDate, compareMode }
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [aiSummary, setAiSummary] = useState("Generating AI insights...");
+  useEffect(() => {
+  // Load AI summary ONCE on mount - it's based on latest data day, not user filters
+  api.webCr.aiSummary()  // No params!
+    .then((res) => setAiSummary(res.summary))
+    .catch((err) => {
+      console.error("AI summary failed:", err);
+      setAiSummary("Unable to generate AI summary at this time.");
+    });
+}, []); 
 
   useEffect(() => {
     let cancelled = false;
@@ -63,7 +77,7 @@ export default function WebCrPage({ onAskChat, startDate, endDate, compareMode }
   const deviceAvgCR = useMemo(() => avgCR(data?.by_device), [data]);
   const countryAvgCR = useMemo(() => avgCR(data?.by_country), [data]);
   
-  const summary = useMemo(() => data ? generateSummary(data, startDate, endDate) : null, [data, startDate, endDate]);
+  // const summary = useMemo(() => data ? generateSummary(data, startDate, endDate) : null, [data, startDate, endDate]);
 
   const trendAvg = useMemo(() => {
     if (!data?.cr_trend?.length) return null;
@@ -123,22 +137,73 @@ export default function WebCrPage({ onAskChat, startDate, endDate, compareMode }
         </div>
       </div>
 
-      <AISummary summary={summary} />
+       <AISummary
+        summary={aiSummary}
+      />
 
       {error && <div className="mb-6 px-4 py-3 rounded-lg bg-danger-light border border-danger/20 text-danger text-sm">{error}</div>}
 
       <div className="text-xs font-semibold uppercase tracking-wider text-muted mb-3">Headline</div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        {loading && !data ? Array(8).fill(0).map((_, i) => <KpiSkeleton key={i} />) : (
+        {loading  ? Array(8).fill(0).map((_, i) => <KpiSkeleton key={i} />) : (
           <>
-            <KpiCard label="Web sessions" value={fmt.num(c.sessions)} delta={d.sessions} compareLabel={compareMode} insight={generateKpiInsight("Web sessions", d.sessions, data)} />
-            <KpiCard label="Web CR" value={fmt.pct(c.cr, 2)} delta={d.cr} compareLabel={compareMode} insight={generateKpiInsight("Web CR", d.cr, data)} />
-            <KpiCard label="Web AOV" value={fmt.inr(c.aov)} delta={d.aov} compareLabel={compareMode} insight={generateKpiInsight("Web AOV", d.aov, data)} />
-            <KpiCard label="Revenue per session" value={fmt.inr(c.revenue_per_session)} delta={d.revenue_per_session} compareLabel={compareMode} insight={generateKpiInsight("Revenue per session", d.revenue_per_session, data)} />
-            <KpiCard label="Bounce rate" value="42%" delta={-0.034} compareLabel={compareMode} insight="Bounce rate improved — landing pages converting better." />
-            <KpiCard label="Pages/session" value="3.4" delta={0.12} compareLabel={compareMode} insight="Users exploring more — better navigation or engagement." />
-            <KpiCard label="Avg session duration" value="2m 18s" delta={0.08} compareLabel={compareMode} insight="Dwell time up — content resonating with visitors." />
-            <KpiCard label="PDP load (P75)" value="2.4s" delta={-0.15} compareLabel={compareMode} insight="Load time improved — CDN or infrastructure upgrades working." />
+            <KpiCard label="Web sessions" 
+            value={fmt.num(c.sessions)} 
+            delta={d.sessions}
+             compareLabel={compareMode} 
+             insight={generateKpiInsight("Web sessions", d.sessions, data)}
+             onAsk={() => onAskChat?.("Why did web sessions changed")}
+             />
+            <KpiCard label="Web CR" value={fmt.pct(c.cr, 2)} 
+            delta={d.cr} compareLabel={compareMode} 
+            insight={generateKpiInsight("Web CR", d.cr, data)} 
+            onAsk={() => onAskChat?.("Why did web CR changed")}
+            />
+            <KpiCard 
+            label="Web AOV" 
+            value={fmt.inr(c.aov)}
+             delta={d.aov} compareLabel={compareMode} 
+             insight={generateKpiInsight("Web AOV", d.aov, data)}
+             onAsk={() => onAskChat?.("Why did web AOV changed")}
+             />
+            <KpiCard
+             label="Revenue per session" 
+             value={fmt.inr(c.revenue_per_session)}
+              delta={d.revenue_per_session} 
+              compareLabel={compareMode} 
+              insight={generateKpiInsight("Revenue per session", d.revenue_per_session, data)}
+              onAsk={() => onAskChat?.("Why did revenue per session changed")}
+              />
+            <KpiCard label="Daily avg sessions" 
+            value={fmt.num(c.daily_avg_sessions)} 
+            delta={d.daily_avg_sessions} 
+            compareLabel={compareMode}
+             insight={generateKpiInsight("Daily avg sessions", d.daily_avg_sessions, data)} 
+              onAsk={() => onAskChat?.("Why did daily avg sessions changed")}
+             
+             />
+            <KpiCard label="Daily avg revenue"
+             value={fmt.inr(c.daily_avg_revenue)} 
+             delta={d.daily_avg_revenue} 
+             compareLabel={compareMode} 
+             insight={generateKpiInsight("Daily avg revenue", d.daily_avg_revenue, data)}
+             onAsk={() => onAskChat?.("Why did daily avg revenue changed")}
+             />
+            <KpiCard
+             label="Daily avg orders" 
+             value={fmt.num(c.daily_avg_purchases)}
+              delta={d.daily_avg_purchases} 
+              compareLabel={compareMode} 
+              insight={generateKpiInsight("Daily avg orders", d.daily_avg_purchases, data)}
+              onAsk={() => onAskChat?.("Why did daily avg orders changed")}
+              />
+            <KpiCard label="Total revenue" 
+            value={fmt.inr(c.revenue)} 
+            delta={d.revenue} 
+            compareLabel={compareMode}
+             insight={generateKpiInsight("Total revenue", d.revenue, data)}
+             onAsk={() => onAskChat?.("Why did total revenue changed")}
+             />
           </>
         )}
       </div>
@@ -153,14 +218,14 @@ export default function WebCrPage({ onAskChat, startDate, endDate, compareMode }
           )}
         </CardHeader>
         <CardBody>
-          {loading && !data ? <div className="skeleton h-64" /> : <Funnel steps={data?.funnel} dropReasons={dropReasons} />}
+          {loading  ? <div className="skeleton h-64" /> : <Funnel steps={data?.funnel} dropReasons={dropReasons} />}
         </CardBody>
       </Card>
 
       <Card className="mb-4">
         <CardHeader><CardTitle>Web CR by traffic source</CardTitle></CardHeader>
         <CardBody className="!p-0">
-          {loading && !data ? <div className="skeleton h-40 mx-5 my-5" /> : (
+          {loading  ? <div className="skeleton h-40 mx-5 my-5" /> : (
             <DataTable rows={data?.by_source || []} getRowKey={(r) => r.source} columns={[
               { key: "source", label: "Source", render: (r) => <span className="font-medium">{r.source}</span> },
               { key: "sessions", label: "Sessions", align: "right", mono: true, render: (r) => fmt.num(r.sessions) },
@@ -176,7 +241,7 @@ export default function WebCrPage({ onAskChat, startDate, endDate, compareMode }
         <Card>
           <CardHeader><CardTitle>CR by device</CardTitle></CardHeader>
           <CardBody className="!p-0">
-            {loading && !data ? <div className="skeleton h-40 mx-5 my-5" /> : (
+            {loading  ? <div className="skeleton h-40 mx-5 my-5" /> : (
               <DataTable rows={data?.by_device || []} getRowKey={(r) => r.device} columns={[
                 { key: "device", label: "Device", render: (r) => <span className="font-medium">{r.device}</span> },
                 { key: "sessions", label: "Sessions", align: "right", mono: true, render: (r) => fmt.num(r.sessions) },
@@ -189,7 +254,7 @@ export default function WebCrPage({ onAskChat, startDate, endDate, compareMode }
         <Card>
           <CardHeader><CardTitle>CR by country</CardTitle></CardHeader>
           <CardBody className="!p-0">
-            {loading && !data ? <div className="skeleton h-40 mx-5 my-5" /> : (
+            {loading  ? <div className="skeleton h-40 mx-5 my-5" /> : (
               <DataTable rows={data?.by_country || []} getRowKey={(r) => r.country} columns={[
                 { key: "country", label: "Country", render: (r) => <span className="font-medium">{r.country}</span> },
                 { key: "sessions", label: "Sessions", align: "right", mono: true, render: (r) => fmt.num(r.sessions) },
@@ -203,7 +268,7 @@ export default function WebCrPage({ onAskChat, startDate, endDate, compareMode }
       <Card className="mb-4">
         <CardHeader><CardTitle>CR by hour of day · spotting peak windows</CardTitle></CardHeader>
         <CardBody>
-          {loading && !data ? <div className="skeleton h-64" /> : <HourChart data={data?.by_hour || []} />}
+          {loading  ? <div className="skeleton h-64" /> : <HourChart data={data?.by_hour || []} />}
         </CardBody>
       </Card>
 
@@ -215,7 +280,7 @@ export default function WebCrPage({ onAskChat, startDate, endDate, compareMode }
           </div>
         </CardHeader>
         <CardBody>
-          {loading && !data ? <div className="skeleton h-64" /> : <TrendChart data={data?.cr_trend || []} avg={trendAvg} />}
+          {loading  ? <div className="skeleton h-64" /> : <TrendChart data={data?.cr_trend || []} avg={trendAvg} />}
         </CardBody>
       </Card>
 

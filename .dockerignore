@@ -1,0 +1,53 @@
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.pytest_cache
+.coverage
+
+# Virtual environment
+.venv
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Frontend source (we'll build this separately)
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# Environment files (will be set in Cloud Run)
+.env
+.env.local
+.env.example
+
+# Documentation
+README.md
+*.md
+
+# Tests
+tests/
+
+# Logs
+*.log
+
+# Build artifacts
+*.egg-info/
+dist/
+build/

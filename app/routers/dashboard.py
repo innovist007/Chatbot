@@ -6,14 +6,15 @@ from datetime import date, timedelta
 from functools import lru_cache
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends,HTTPException, Query, status
 
 from app.config import get_settings
+from app.routers.auth import get_current_user
 from app.services.dashboard_service import DashboardFilters, DashboardService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+router = APIRouter(prefix="/dashboard", tags=["dashboard"],dependencies=[Depends(get_current_user)],)
 
 
 @lru_cache
