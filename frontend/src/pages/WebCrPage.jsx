@@ -10,6 +10,7 @@ import { RecommendedActions } from "@/components/RecommendedActions";
 import { AISummary, generateSummary } from "@/components/AISummary";
 import { api } from "@/lib/api";
 import { fmt } from "@/lib/utils";
+import { LoadingOverlay } from "../components/ui/LoadingOverlay";
 
 const TONE_BY_RATIO = (cr, avg) => {
   if (cr == null || avg == null || avg === 0) return "neutral";
@@ -43,6 +44,7 @@ export default function WebCrPage({ onAskChat, startDate, endDate, compareMode }
   const [segment, setSegment] = useState(null);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState(null);
   const [aiSummary, setAiSummary] = useState("Generating AI insights...");
   useEffect(() => {
@@ -55,20 +57,62 @@ export default function WebCrPage({ onAskChat, startDate, endDate, compareMode }
     });
 }, []); 
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
+  // useEffect(() => {
+  //   let cancelled = false;
+  //   setLoading(true);
+  //   setError(null);
     
-    api.webCr
-      .overview({ startDate, endDate, devices: device ? [device] : null, channels: segment ? [segment] : null })
-      .then((d) => { if (!cancelled) setData(d); })
-      .catch((err) => { if (!cancelled) setError(err.message); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+  //   api.webCr
+  //     .overview({ startDate, endDate, devices: device ? [device] : null, channels: segment ? [segment] : null })
+  //     .then((d) => { if (!cancelled) setData(d); })
+  //     .catch((err) => { if (!cancelled) setError(err.message); })
+  //     .finally(() => { if (!cancelled) setLoading(false); });
     
-    return () => { cancelled = true; };
-  }, [startDate, endDate, device, segment]);
+  //   return () => { cancelled = true; };
+  // }, [startDate, endDate, device, segment]);
 
+  useEffect(() => {
+  let cancelled = false;
+
+  setError(null);
+
+  // First load → skeletons
+  // Later filter changes → overlay only
+  if (!data) {
+    setInitialLoading(true);
+  } else {
+    setLoading(true);
+  }
+
+  api.webCr
+    .overview({
+      startDate,
+      endDate,
+      devices: device ? [device] : null,
+      channels: segment ? [segment] : null,
+    })
+    .then((d) => {
+      if (!cancelled) {
+        setData(d);
+      }
+    })
+    .catch((err) => {
+      if (!cancelled) {
+        setError(err.message);
+      }
+    })
+    .finally(() => {
+      if (!cancelled) {
+        setLoading(false);
+        setInitialLoading(false);
+      }
+    });
+
+  return () => {
+    cancelled = true;
+  };
+}, [startDate, endDate, device, segment]);
+  
   const o = data?.overview;
   const c = o?.current ?? {};
   const d = o?.deltas ?? {};
@@ -143,8 +187,8 @@ export default function WebCrPage({ onAskChat, startDate, endDate, compareMode }
 
       {error && <div className="mb-6 px-4 py-3 rounded-lg bg-danger-light border border-danger/20 text-danger text-sm">{error}</div>}
 
-      <div className="text-xs font-semibold uppercase tracking-wider text-muted mb-3">Headline</div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      {/* <div className="text-xs font-semibold uppercase tracking-wider text-muted mb-3">Headline</div> */}
+      {/* <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         {loading  ? Array(8).fill(0).map((_, i) => <KpiSkeleton key={i} />) : (
           <>
             <KpiCard label="Web sessions" 
@@ -206,7 +250,128 @@ export default function WebCrPage({ onAskChat, startDate, endDate, compareMode }
              />
           </>
         )}
-      </div>
+      </div> */}
+      <div className="text-xs font-semibold uppercase tracking-wider text-muted mb-3">
+  Headline
+</div>
+
+{initialLoading ? (
+  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+    {Array(8)
+      .fill(0)
+      .map((_, i) => (
+        <KpiSkeleton key={i} />
+      ))}
+  </div>
+) : (
+  <LoadingOverlay loading={loading} className="mb-6">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      
+      <KpiCard
+        label="Web sessions"
+        value={fmt.num(c.sessions)}
+        delta={d.sessions}
+        compareLabel={compareMode}
+        insight={generateKpiInsight("Web sessions", d.sessions, data)}
+        onAsk={() => onAskChat?.("Why did web sessions changed")}
+      />
+
+      <KpiCard
+        label="Web CR"
+        value={fmt.pct(c.cr, 2)}
+        delta={d.cr}
+        compareLabel={compareMode}
+        insight={generateKpiInsight("Web CR", d.cr, data)}
+        onAsk={() => onAskChat?.("Why did web CR changed")}
+      />
+
+      <KpiCard
+        label="Web AOV"
+        value={fmt.inr(c.aov)}
+        delta={d.aov}
+        compareLabel={compareMode}
+        insight={generateKpiInsight("Web AOV", d.aov, data)}
+        onAsk={() => onAskChat?.("Why did web AOV changed")}
+      />
+
+      <KpiCard
+        label="Revenue per session"
+        value={fmt.inr(c.revenue_per_session)}
+        delta={d.revenue_per_session}
+        compareLabel={compareMode}
+        insight={generateKpiInsight(
+          "Revenue per session",
+          d.revenue_per_session,
+          data
+        )}
+        onAsk={() =>
+          onAskChat?.("Why did revenue per session changed")
+        }
+      />
+
+      <KpiCard
+        label="Daily avg sessions"
+        value={fmt.num(c.daily_avg_sessions)}
+        delta={d.daily_avg_sessions}
+        compareLabel={compareMode}
+        insight={generateKpiInsight(
+          "Daily avg sessions",
+          d.daily_avg_sessions,
+          data
+        )}
+        onAsk={() =>
+          onAskChat?.("Why did daily avg sessions changed")
+        }
+      />
+
+      <KpiCard
+        label="Daily avg revenue"
+        value={fmt.inr(c.daily_avg_revenue)}
+        delta={d.daily_avg_revenue}
+        compareLabel={compareMode}
+        insight={generateKpiInsight(
+          "Daily avg revenue",
+          d.daily_avg_revenue,
+          data
+        )}
+        onAsk={() =>
+          onAskChat?.("Why did daily avg revenue changed")
+        }
+      />
+
+      <KpiCard
+        label="Daily avg orders"
+        value={fmt.num(c.daily_avg_purchases)}
+        delta={d.daily_avg_purchases}
+        compareLabel={compareMode}
+        insight={generateKpiInsight(
+          "Daily avg orders",
+          d.daily_avg_purchases,
+          data
+        )}
+        onAsk={() =>
+          onAskChat?.("Why did daily avg orders changed")
+        }
+      />
+
+      <KpiCard
+        label="Total revenue"
+        value={fmt.inr(c.revenue)}
+        delta={d.revenue}
+        compareLabel={compareMode}
+        insight={generateKpiInsight(
+          "Total revenue",
+          d.revenue,
+          data
+        )}
+        onAsk={() =>
+          onAskChat?.("Why did total revenue changed")
+        }
+      />
+    </div>
+  </LoadingOverlay>
+)}
+
 
       <Card className="mb-4">
         <CardHeader>
@@ -218,14 +383,25 @@ export default function WebCrPage({ onAskChat, startDate, endDate, compareMode }
           )}
         </CardHeader>
         <CardBody>
-          {loading  ? <div className="skeleton h-64" /> : <Funnel steps={data?.funnel} dropReasons={dropReasons} />}
+          {/* {loading  ? <div className="skeleton h-64" /> : <Funnel steps={data?.funnel} dropReasons={dropReasons} />} */}
+        {initialLoading ? (
+  <div className="skeleton h-64" />
+) : (
+  <LoadingOverlay loading={loading}>
+    <Funnel
+      steps={data?.funnel}
+      dropReasons={dropReasons}
+    />
+  </LoadingOverlay>
+)}
         </CardBody>
       </Card>
 
       <Card className="mb-4">
         <CardHeader><CardTitle>Web CR by traffic source</CardTitle></CardHeader>
         <CardBody className="!p-0">
-          {loading  ? <div className="skeleton h-40 mx-5 my-5" /> : (
+          {initialLoading  ? <div className="skeleton h-40 mx-5 my-5" /> : (
+            <LoadingOverlay loading={loading}>
             <DataTable rows={data?.by_source || []} getRowKey={(r) => r.source} columns={[
               { key: "source", label: "Source", render: (r) => <span className="font-medium">{r.source}</span> },
               { key: "sessions", label: "Sessions", align: "right", mono: true, render: (r) => fmt.num(r.sessions) },
@@ -233,6 +409,7 @@ export default function WebCrPage({ onAskChat, startDate, endDate, compareMode }
               { key: "aov", label: "AOV", align: "right", mono: true, render: (r) => fmt.inr(r.aov) },
               { key: "rev", label: "Revenue", align: "right", mono: true, render: (r) => fmt.inr(r.revenue) },
             ]} />
+            </LoadingOverlay>
           )}
         </CardBody>
       </Card>
@@ -241,25 +418,29 @@ export default function WebCrPage({ onAskChat, startDate, endDate, compareMode }
         <Card>
           <CardHeader><CardTitle>CR by device</CardTitle></CardHeader>
           <CardBody className="!p-0">
-            {loading  ? <div className="skeleton h-40 mx-5 my-5" /> : (
+            {initialLoading  ? <div className="skeleton h-40 mx-5 my-5" /> : (
+              <LoadingOverlay loading={loading}>
               <DataTable rows={data?.by_device || []} getRowKey={(r) => r.device} columns={[
                 { key: "device", label: "Device", render: (r) => <span className="font-medium">{r.device}</span> },
                 { key: "sessions", label: "Sessions", align: "right", mono: true, render: (r) => fmt.num(r.sessions) },
                 { key: "cr", label: "CR", align: "right", render: (r) => <Pill tone={TONE_BY_RATIO(r.cr, deviceAvgCR)}>{fmt.pct(r.cr)}</Pill> },
                 { key: "aov", label: "AOV", align: "right", mono: true, render: (r) => fmt.inr(r.aov) },
               ]} />
+              </LoadingOverlay>
             )}
           </CardBody>
         </Card>
         <Card>
           <CardHeader><CardTitle>CR by country</CardTitle></CardHeader>
           <CardBody className="!p-0">
-            {loading  ? <div className="skeleton h-40 mx-5 my-5" /> : (
+            {initialLoading  ? <div className="skeleton h-40 mx-5 my-5" /> : (
+              <LoadingOverlay loading={loading}>
               <DataTable rows={data?.by_country || []} getRowKey={(r) => r.country} columns={[
                 { key: "country", label: "Country", render: (r) => <span className="font-medium">{r.country}</span> },
                 { key: "sessions", label: "Sessions", align: "right", mono: true, render: (r) => fmt.num(r.sessions) },
                 { key: "cr", label: "CR", align: "right", render: (r) => <Pill tone={TONE_BY_RATIO(r.cr, countryAvgCR)}>{fmt.pct(r.cr)}</Pill> },
               ]} />
+              </LoadingOverlay>
             )}
           </CardBody>
         </Card>
@@ -268,7 +449,14 @@ export default function WebCrPage({ onAskChat, startDate, endDate, compareMode }
       <Card className="mb-4">
         <CardHeader><CardTitle>CR by hour of day · spotting peak windows</CardTitle></CardHeader>
         <CardBody>
-          {loading  ? <div className="skeleton h-64" /> : <HourChart data={data?.by_hour || []} />}
+          {/* {initialLoading  ? <div className="skeleton h-64" /> : <HourChart data={data?.by_hour || []} />} */}
+        {initialLoading ? (
+  <div className="skeleton h-64" />
+) : (
+  <LoadingOverlay loading={loading}>
+    <HourChart data={data?.by_hour || []} />
+  </LoadingOverlay>
+)}
         </CardBody>
       </Card>
 
@@ -280,7 +468,13 @@ export default function WebCrPage({ onAskChat, startDate, endDate, compareMode }
           </div>
         </CardHeader>
         <CardBody>
-          {loading  ? <div className="skeleton h-64" /> : <TrendChart data={data?.cr_trend || []} avg={trendAvg} />}
+          {initialLoading ? (
+  <div className="skeleton h-64" />
+) : (
+  <LoadingOverlay loading={loading}>
+    <TrendChart data={data?.cr_trend || []} avg={trendAvg} />
+  </LoadingOverlay>
+)}
         </CardBody>
       </Card>
 

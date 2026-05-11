@@ -12,6 +12,7 @@ import PromoBasketPage from "./pages/PromoBasketPage";
 import RetentionPage from "./pages/RetentionPage";
 import { todayISO, daysAgoISO } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
+import { toast } from "sonner";
 
 // Main authenticated app layout
 function AuthenticatedApp() {
@@ -28,10 +29,28 @@ function AuthenticatedApp() {
     setChatOpen(true);
   }
 
-  function handleDateChange({ start, end }) {
-    if (start) setStartDate(start);
-    if (end) setEndDate(end);
+  // function handleDateChange({ start, end }) {
+  //   if (start) setStartDate(start);
+  //   if (end) setEndDate(end);
+
+  // }
+function handleDateChange({ start, end }) {
+  const newStart = start || startDate;
+  const newEnd = end || endDate;
+
+  if (new Date(newStart) > new Date(newEnd)) {
+    if (start) {
+      toast.error("Start date cannot be greater than end date");
+    } else if (end) {
+      toast.error("End date cannot be less than start date");
+    }
+
+    return;
   }
+
+  if (start) setStartDate(start);
+  if (end) setEndDate(end);
+}
 
   return (
     <div className="min-h-screen flex flex-col bg-bg">

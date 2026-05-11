@@ -105,7 +105,7 @@ export function KpiCard({ label, value, delta, compareLabel = "MoM", insight, on
       onMouseEnter={() => setShowInsight(true)}
       onMouseLeave={() => setShowInsight(false)}
     >
-      <Card className="px-4 py-3 transition-all hover:shadow-hover hover:border-accent/30">
+      <Card className="px-4 py-3 pb-16 transition-all hover:shadow-hover hover:border-accent/30">
         {/* Ask AI Button - Top right */}
         {onAsk && (
           <button
@@ -155,7 +155,7 @@ export function KpiCard({ label, value, delta, compareLabel = "MoM", insight, on
       </Card>
 
       {/* Hover insight tooltip - positioned on RIGHT side */}
-      {insight && showInsight && (
+      {/* {insight && showInsight && (
         <div className="absolute left-full top-0 ml-3 z-50 w-64 animate-in fade-in slide-in-from-left-2 duration-200 pointer-events-none">
           <div className="bg-surface border border-border-strong rounded-lg shadow-lifted p-3 text-xs text-text-secondary leading-relaxed">
             <div className="flex items-start gap-2">
@@ -169,7 +169,31 @@ export function KpiCard({ label, value, delta, compareLabel = "MoM", insight, on
             </div>
           </div>
         </div>
-      )}
+      )} */}
+      {/* Hover insight inside card */}
+{insight && (
+  <div
+    className={cn(
+      "absolute bottom-3 right-3 left-3",
+      "transition-all duration-200",
+      showInsight
+        ? "opacity-100 translate-y-0"
+        : "opacity-0 translate-y-2 pointer-events-none"
+    )}
+  >
+    <div className="flex justify-end">
+      <div
+        className={cn(
+          "max-w-[85%] text-[11px] leading-relaxed px-2.5 py-2 rounded-lg border shadow-sm",
+          "bg-surface/95 backdrop-blur",
+          "text-text-secondary border-border"
+        )}
+      >
+        {insight}
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 }

@@ -211,7 +211,7 @@ export default function PromoBasketPage({ onAskChat, startDate, endDate, compare
                   columns={[
                     { key: "code", label: "Code" },
                     { key: "redemptions", label: "Redemptions", render: (row) => fmt.num(row.redemptions) },
-                    { key: "discount", label: "Discount" },
+                    { key: "discount", label: "Discount" , render: (row) => fmt.pct(row.discount)},
                     { key: "orders", label: "Orders", render: (row) => fmt.num(row.orders) },
                     { key: "aov", label: "AOV", render: (row) => fmt.inr(row.aov) },
                     { 

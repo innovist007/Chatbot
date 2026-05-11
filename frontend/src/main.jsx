@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { GoogleOAuthProvider } from "@react-oauth/google";
+import{Toaster} from "sonner";
 import App from "./App.jsx";
 import { AuthProvider } from "./lib/AuthContext";
 import "./styles/index.css";
@@ -18,6 +19,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       <AuthProvider>
         <BrowserRouter>
           <App />
+          <Toaster richColors position="top-right" />
         </BrowserRouter>
       </AuthProvider>
     </GoogleOAuthProvider>
