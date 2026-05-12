@@ -278,40 +278,39 @@ class PromoBasketService:
         cte, params = self._order_cte(f)
 
         sql = f"""
-        {cte}
+{cte}
 
-        SELECT
+SELECT
 
-            COUNT(DISTINCT order_name) AS orders,
+    COUNT(DISTINCT order_name) AS orders,
 
-            SUM(total_price) AS revenue,
+    SUM(total_price) AS revenue,
 
-            SAFE_DIVIDE(
-                SUM(total_price),
-                COUNT(DISTINCT order_name)
-            ) AS aov,
+    SAFE_DIVIDE(
+        SUM(total_price),
+        COUNT(DISTINCT order_name)
+    ) AS aov,
 
-            SAFE_DIVIDE(
-                SUM(total_items),
-                COUNT(DISTINCT order_name)
-            ) AS items_per_order,
+    SAFE_DIVIDE(
+        SUM(total_items),
+        COUNT(DISTINCT order_name)
+    ) AS items_per_order,
 
-            SAFE_DIVIDE(
-                COUNT(DISTINCT CASE
-                    WHEN discount_code IS NOT NULL
-                        AND discount_code != ''
-                    THEN order_name
-                END),
-                COUNT(DISTINCT order_name)
-            ) * 100 AS coupon_usage,
+    SAFE_DIVIDE(
+        COUNT(DISTINCT CASE
+            WHEN discount_code IS NOT NULL
+            THEN order_name
+        END),
+        COUNT(DISTINCT order_name)
+    )  AS coupon_usage,
 
-            SAFE_DIVIDE(
-                SUM(total_discounts),
-                SUM(total_price)
-            ) * 100 AS discount_pct
+    SAFE_DIVIDE(
+        SUM(total_discounts),
+        SUM(total_discounts) + SUM(total_price)
+    ) * 100 AS discount_pct
 
-        FROM orders
-        """
+FROM orders
+"""
 
         rows = self._run(sql, params)
 
@@ -424,10 +423,10 @@ class PromoBasketService:
                 COUNT(DISTINCT order_name)
             ) AS aov,
 
-               SAFE_DIVIDE(
-        SUM(total_discounts),
-        COUNT(DISTINCT order_name)
-    ) AS discount,
+            SAFE_DIVIDE(
+                SUM(total_discounts),
+                SUM(total_discounts) + SUM(total_price)
+            )  AS discount,
 
             NULL AS redemptions,
 
@@ -436,13 +435,13 @@ class PromoBasketService:
         FROM orders
 
         WHERE discount_code IS NOT NULL
-            AND discount_code != ''
+          
 
         GROUP BY code
 
-        ORDER BY orders DESC
+        ORDER BY orders DESC LIMIT 10
 
-        LIMIT 10
+        
         """
 
         result = self._run(sql, params)
@@ -488,7 +487,7 @@ class PromoBasketService:
             SAFE_DIVIDE(
                 COUNT(DISTINCT order_name),
                 SUM(COUNT(DISTINCT order_name)) OVER()
-            ) * 100 AS share,
+            )  AS share,
 
             AVG(total_price) AS aov
 
@@ -528,44 +527,52 @@ class PromoBasketService:
         sql = f"""
         {cte},
 
-        discount_base AS (
+       
+discount_base AS (
 
-            SELECT
+    SELECT
 
-                *,
+        *,
 
-                SAFE_DIVIDE(
-                    total_discounts,
-                    total_price
-                ) * 100 AS discount_depth
+        SAFE_DIVIDE(
+            total_discounts,
+            total_price
+        ) * 100 AS discount_depth
 
-            FROM orders
-        )
+    FROM orders
+),
+total_orders AS (
+
+    SELECT
+        COUNT(DISTINCT order_name) AS total_orders
+    FROM orders
+)
+
 
         SELECT
 
-            CASE
-                WHEN discount_depth = 0 THEN '0%'
-                WHEN discount_depth <= 10 THEN '1-10%'
-                WHEN discount_depth <= 20 THEN '11-20%'
-                WHEN discount_depth <= 30 THEN '21-30%'
-                ELSE '30%+'
-            END AS depth,
+    CASE
+        WHEN discount_depth = 0 THEN '0%'
+        WHEN discount_depth <= 10 THEN '1-10%'
+        WHEN discount_depth <= 20 THEN '11-20%'
+        WHEN discount_depth <= 30 THEN '21-30%'
+        ELSE '30%+'
+    END AS depth,
 
-            COUNT(DISTINCT order_name) AS orders,
+    COUNT(DISTINCT order_name) AS orders,
 
-            SAFE_DIVIDE(
-                COUNT(DISTINCT order_name),
-                SUM(COUNT(DISTINCT order_name)) OVER()
-            ) * 100 AS share,
+    SAFE_DIVIDE(
+    COUNT(DISTINCT order_name),
+    SUM(COUNT(DISTINCT order_name)) OVER()
+)  AS share,
 
-            NULL AS rto_pct
+    NULL AS rto_pct
 
-        FROM discount_base
+FROM discount_base
 
-        GROUP BY depth
+GROUP BY depth
 
-        ORDER BY orders DESC
+ORDER BY orders DESC
         """
 
         result = self._run(sql, params)

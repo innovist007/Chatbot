@@ -239,10 +239,13 @@ export default function PromoBasketPage({ onAskChat, startDate, endDate, compare
                 const topCoupon = coupons.reduce((max, c) => c.redemptions > max.redemptions ? c : max, coupons[0]);
                 
                 return (
-                  <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg text-sm">
-                    <strong>{topCoupon?.code}</strong> drives {fmt.num(topCoupon?.redemptions)} redemptions but may erode margin. 
-                    {negativeCoupon && ` ${negativeCoupon.code} is margin-negative — review LTV justification.`}
-                  </div>
+                 <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg text-sm">
+                  Most orders are driven by{" "}
+                  <strong>{topCoupon?.code}</strong>{" "}
+                  with <strong>{fmt.num(topCoupon?.orders)}</strong> orders,
+                  producing an AOV of{" "}
+                  <strong>{fmt.inr(topCoupon?.aov)}</strong>.
+                </div>
                 );
               })()}
             </>
@@ -375,12 +378,19 @@ export default function PromoBasketPage({ onAskChat, startDate, endDate, compare
                       if (!fullPrice || !highDiscount) return null;
                       
                       const ratio = highDiscount.rto_pct / (fullPrice.rto_pct || 0.01);
+                      const topDiscountBucket =
+                      dists.reduce((max, d) =>
+                        d.share_pct > max.share_pct ? d : max
+                      , dists[0]);
                       
                       return (
-                        <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg text-sm">
-                          Higher discount = higher RTO. <strong>{highDiscount.depth}</strong> buyers return 
-                          <strong> {ratio.toFixed(1)}x</strong> more than full-price buyers.
-                        </div>
+                    <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg text-sm">
+                    Majority of orders fall in the{" "}
+                    <strong>{topDiscountBucket.depth}</strong>{" "}
+                    discount bucket, accounting for{" "}
+                    <strong>{fmt.pct(topDiscountBucket.share)}</strong>{" "}
+                    of all promo orders.
+                  </div>
                       );
                     })()}
                   </>
