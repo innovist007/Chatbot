@@ -44,6 +44,10 @@ export const api = {
       });
       (filters.channels || []).forEach((v) => params.append("channel_groups", v));
       (filters.devices || []).forEach((v) => params.append("devices", v));
+      (filters.campaigns || []).forEach((v) => params.append("campaigns", v));
+      (filters.contentGroups || []).forEach((v) => params.append("content_groups", v));
+      (filters.landingPages || []).forEach((v) => params.append("landing_pages", v));
+      (filters.sessionTypes || []).forEach((v) => params.append("session_types", v));
       return request(`/web-cr?${params}`);
     },
     filterOptions() {
@@ -150,5 +154,46 @@ retention: {
   aiSummary() {
     return request("/retention/ai-summary");
   },
+},
+
+supplyChain: {
+  _baseParams(filters) {
+    const p = new URLSearchParams({
+      start_date: filters.startDate,
+      end_date: filters.endDate,
+    });
+    if (filters.compareMode) p.append("compare_mode", filters.compareMode);
+    return p;
+  },
+  overview(filters) { return request(`/supply-chain/overview?${this._baseParams(filters)}`); },
+  waterfall(filters) { return request(`/supply-chain/waterfall?${this._baseParams(filters)}`); },
+  ndrFunnel(filters) { return request(`/supply-chain/ndr-funnel?${this._baseParams(filters)}`); },
+  warehouseTable(filters) { return request(`/supply-chain/warehouse-table?${this._baseParams(filters)}`); },
+  courierTable(filters) { return request(`/supply-chain/courier-table?${this._baseParams(filters)}`); },
+  paymentTable(filters) { return request(`/supply-chain/payment-table?${this._baseParams(filters)}`); },
+  courierWhMatrix(filters) { return request(`/supply-chain/courier-wh-matrix?${this._baseParams(filters)}`); },
+  topPincodes(filters, limit = 10) {
+    const p = this._baseParams(filters);
+    p.append("limit", String(limit));
+    return request(`/supply-chain/top-pincodes?${p}`);
+  },
+  deliveryDayDistribution(filters) {
+    return request(`/supply-chain/delivery-day-distribution?${this._baseParams(filters)}`);
+  },
+  trend(filters, { segment, metric, granularity, subFilter }) {
+    const p = this._baseParams(filters);
+    if (segment) p.append("segment", segment);
+    if (metric) p.append("metric", metric);
+    if (granularity) p.append("granularity", granularity);
+    if (subFilter) p.append("sub_filter", subFilter);
+    return request(`/supply-chain/trend?${p}`);
+  },
+  segmentOptions(segment) {
+    const url = segment
+      ? `/supply-chain/segment-options?segment=${encodeURIComponent(segment)}`
+      : `/supply-chain/segment-options`;
+    return request(url);
+  },
+  aiSummary() { return request("/supply-chain/ai-summary"); },
 },
 };

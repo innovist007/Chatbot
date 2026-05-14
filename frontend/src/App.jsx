@@ -10,6 +10,7 @@ import LoginPage from "./pages/LoginPage";
 import D2CRtoPage from "./pages/D2CRtoPage";
 import PromoBasketPage from "./pages/PromoBasketPage";
 import RetentionPage from "./pages/RetentionPage";
+import SupplyChainPage from "./pages/SupplyChainPage";
 import { todayISO, daysAgoISO } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
 import { toast } from "sonner";
@@ -122,17 +123,29 @@ function handleDateChange({ start, end }) {
            compareMode={compareMode} />} 
            />
 
-           <Route 
-    path="/repeat" 
+           <Route
+    path="/repeat"
   element={
-    <RetentionPage 
-      onAskChat={askChat} 
-      startDate={startDate} 
-      endDate={endDate} 
-      compareMode={compareMode} 
+    <RetentionPage
+      onAskChat={askChat}
+      startDate={startDate}
+      endDate={endDate}
+      compareMode={compareMode}
     />
-  } 
+  }
 />
+
+          <Route
+            path="/supply"
+            element={
+              <SupplyChainPage
+                startDate={startDate}
+                endDate={endDate}
+                compareMode={compareMode}
+                onAskChat={askChat}
+              />
+            }
+          />
 
         </Routes>
       </main>

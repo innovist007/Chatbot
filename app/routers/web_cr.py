@@ -32,6 +32,10 @@ def _parse_filters(
     channel_groups: list[str] | None,
     devices: list[str] | None,
     countries: list[str] | None,
+    campaigns: list[str] | None,
+    content_groups: list[str] | None,
+    landing_pages: list[str] | None,
+    session_types: list[str] | None,
 ) -> WebCRFilters:
     today = date.today()
     end = end_date or today
@@ -41,6 +45,8 @@ def _parse_filters(
     return WebCRFilters(
         start_date=start, end_date=end,
         channel_groups=channel_groups, devices=devices, countries=countries,
+        campaigns=campaigns, content_groups=content_groups,
+        landing_pages=landing_pages, session_types=session_types,
     )
 
 
@@ -51,8 +57,15 @@ def web_cr(
     channel_groups: list[str] | None = Query(None),
     devices: list[str] | None = Query(None),
     countries: list[str] | None = Query(None),
+    campaigns: list[str] | None = Query(None),
+    content_groups: list[str] | None = Query(None),
+    landing_pages: list[str] | None = Query(None),
+    session_types: list[str] | None = Query(None),
 ) -> dict[str, Any]:
-    f = _parse_filters(start_date, end_date, channel_groups, devices, countries)
+    f = _parse_filters(
+        start_date, end_date, channel_groups, devices, countries,
+        campaigns, content_groups, landing_pages, session_types,
+    )
     svc = _service()
     try:
         return {
@@ -60,14 +73,21 @@ def web_cr(
                 "start_date": f.start_date.isoformat(),
                 "end_date": f.end_date.isoformat(),
             },
-            "overview":      svc.overview(f),
-            "funnel":        svc.funnel(f),
-            "by_source":     svc.by_source(f),
-            "by_device":     svc.by_device(f),
-            "by_country":    svc.by_country(f),
-            "landing_pages": svc.landing_pages(f),
-            "by_hour":       svc.by_hour(f),
-            "cr_trend":      svc.cr_trend(f),
+            "overview":          svc.overview(f),
+            "funnel":            svc.funnel(f),
+            "funnel_by_channel": svc.funnel_by_channel(f),
+            "funnel_by_device":  svc.funnel_by_device(f),
+            "funnel_heatmap":    svc.funnel_hourly_heatmap(f),
+            "page_funnel":        svc.page_funnel(f),
+            "top_landing_pages":  svc.top_landing_pages(f),
+            "top_channels":       svc.top_channels(f),
+            "top_content_groups": svc.top_content_groups(f),
+            "by_source":         svc.by_source(f),
+            "by_device":         svc.by_device(f),
+            "by_country":        svc.by_country(f),
+            "landing_pages":     svc.landing_pages(f),
+            "by_hour":           svc.by_hour(f),
+            "cr_trend":          svc.cr_trend(f),
         }
     except Exception as exc:  # noqa: BLE001
         logger.exception("web_cr dashboard failed")
