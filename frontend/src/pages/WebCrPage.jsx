@@ -6,6 +6,8 @@ import { api } from "@/lib/api";
 import { WebCrTabs, WEB_CR_TABS } from "@/components/webcr/WebCrTabs";
 import { OverviewTab } from "@/components/webcr/OverviewTab";
 import { FunnelTab } from "@/components/webcr/FunnelTab";
+import { ChannelsTab } from "@/components/webcr/ChannelsTab";
+import { PagesProductsTab } from "@/components/webcr/PagesProductsTab";
 import { WebCrKpiHeader } from "@/components/webcr/WebCrKpiHeader";
 
 function PlaceholderTab({ tabKey }) {
@@ -192,7 +194,23 @@ export default function WebCrPage({ onAskChat, startDate, endDate, compareMode }
             filterOpts={filterOpts}
           />
         )}
-        {tab !== "overview" && tab !== "funnel" && <PlaceholderTab tabKey={tab} />}
+        {tab === "channels" && (
+          <ChannelsTab
+            data={data}
+            initialLoading={initialLoading}
+            loading={loading}
+          />
+        )}
+        {tab === "pages" && (
+          <PagesProductsTab
+            data={data}
+            initialLoading={initialLoading}
+            loading={loading}
+          />
+        )}
+        {tab !== "overview" && tab !== "funnel" && tab !== "channels" && tab !== "pages" && (
+          <PlaceholderTab tabKey={tab} />
+        )}
       </div>
     </div>
   );

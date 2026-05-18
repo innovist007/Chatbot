@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { Pill } from "@/components/ui/Pill";
 import { KpiCard } from "@/components/KpiCard";
 import { DataTable } from "@/components/DataTable";
@@ -28,6 +29,7 @@ export default function SupplyChainPage({ startDate, endDate, compareMode, onAsk
   const [matrix, setMatrix] = useState(null);
   const [pincodes, setPincodes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState(null);
 
   // AI summary
@@ -86,11 +88,13 @@ export default function SupplyChainPage({ startDate, endDate, compareMode, onAsk
         setMatrix(mx);
         setPincodes(pc);
         setLoading(false);
+        setInitialLoading(false);
       })
       .catch((err) => {
         if (cancelled) return;
         setError(err.message);
         setLoading(false);
+        setInitialLoading(false);
       });
     return () => { cancelled = true; };
   }, [filters]);
@@ -146,6 +150,29 @@ export default function SupplyChainPage({ startDate, endDate, compareMode, onAsk
   // Derived alerts (very simple, data-driven; no hardcoded narrative)
   const alerts = useMemo(() => buildAlerts({ overview, ndrFunnel, matrix, pincodes }), [overview, ndrFunnel, matrix, pincodes]);
 
+  if (initialLoading && !overview) {
+    return (
+      <div className="space-y-4 p-6">
+        <div className="skeleton h-20" />
+        <div className="skeleton h-16" />
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
+          {Array(7).fill(0).map((_, i) => <div key={i} className="skeleton h-24" />)}
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          {Array(6).fill(0).map((_, i) => <div key={i} className="skeleton h-20" />)}
+        </div>
+        <div className="skeleton h-40" />
+        <div className="skeleton h-64" />
+        <div className="skeleton h-64" />
+        <div className="skeleton h-72" />
+        <div className="flex items-center gap-2 text-sm text-text-secondary pt-2">
+          <div className="w-5 h-5 border-[3px] border-accent border-t-transparent rounded-full animate-spin" />
+          <span>Loading supply chain data…</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 p-6">
       {/* AI Flash */}
@@ -157,38 +184,50 @@ export default function SupplyChainPage({ startDate, endDate, compareMode, onAsk
       />
 
       {/* RAG Strip */}
-      <RagStrip items={ragItems} />
+      <LoadingOverlay loading={loading}>
+        <RagStrip items={ragItems} />
+      </LoadingOverlay>
 
       {/* Key metrics KPI grid */}
       <SectionHeader title="Key metrics" subtitle={`current · vs ${compareMode}`} tone="purple" />
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
-        <KpiCard label="Total orders" value={fmt.num(cur.total_orders)} delta={dl.total_orders} compareLabel={compareMode} onAsk={() => onAskChat?.("supply chain total orders")} />
-        <KpiCard label="Delivered orders" value={fmt.num(cur.delivered_orders)} delta={dl.delivered_orders} compareLabel={compareMode} />
-        <KpiCard label="Delivered revenue" value={fmt.inr(cur.delivered_revenue)} delta={dl.delivered_revenue} compareLabel={compareMode} />
-        <KpiCard label="RTO %" value={fmt.pct(cur.rto_pct)} delta={dl.rto_pct} compareLabel={compareMode} />
-        <KpiCard label="NDR rate" value={fmt.pct(cur.ndr_pct)} delta={dl.ndr_pct} compareLabel={compareMode} />
-        <KpiCard label="Stuck (in-transit >7d)" value={fmt.num(cur.stuck_orders)} />
-        <KpiCard label="In ETA (D0–D3)" value={fmt.pct(cur.in_eta_pct)} delta={dl.in_eta_pct} compareLabel={compareMode} />
-      </div>
+      <LoadingOverlay loading={loading}>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
+          <KpiCard label="Total orders" value={fmt.num(cur.total_orders)} delta={dl.total_orders} compareLabel={compareMode} onAsk={() => onAskChat?.("supply chain total orders")} />
+          <KpiCard label="Delivered orders" value={fmt.num(cur.delivered_orders)} delta={dl.delivered_orders} compareLabel={compareMode} />
+          <KpiCard label="Delivered revenue" value={fmt.inr(cur.delivered_revenue)} delta={dl.delivered_revenue} compareLabel={compareMode} />
+          <KpiCard label="RTO %" value={fmt.pct(cur.rto_pct)} delta={dl.rto_pct} compareLabel={compareMode} />
+          <KpiCard label="NDR rate" value={fmt.pct(cur.ndr_pct)} delta={dl.ndr_pct} compareLabel={compareMode} />
+          <KpiCard label="Stuck (in-transit >7d)" value={fmt.num(cur.stuck_orders)} />
+          <KpiCard label="In ETA (D0–D3)" value={fmt.pct(cur.in_eta_pct)} delta={dl.in_eta_pct} compareLabel={compareMode} />
+        </div>
+      </LoadingOverlay>
 
       {/* TAT cards */}
-      <TatGrid items={tatItems} />
+      <LoadingOverlay loading={loading}>
+        <TatGrid items={tatItems} />
+      </LoadingOverlay>
 
       {/* Fulfilment TAT pipeline — time proportional */}
       <SectionHeader title="Fulfilment TAT pipeline" subtitle="time proportional" tone="green" />
-      <TatPipeline kpis={cur} etaPct={cur.in_eta_pct} />
+      <LoadingOverlay loading={loading}>
+        <TatPipeline kpis={cur} etaPct={cur.in_eta_pct} />
+      </LoadingOverlay>
 
       {/* Waterfall */}
       <SectionHeader title="Order waterfall" subtitle="Each step erodes the survivor share" tone="gray" />
-      <Card className="p-4">
-        <Waterfall data={waterfall} />
-      </Card>
+      <LoadingOverlay loading={loading}>
+        <Card className="p-4">
+          <Waterfall data={waterfall} />
+        </Card>
+      </LoadingOverlay>
 
       {/* NDR → RTO funnel */}
       <SectionHeader title="NDR → RTO funnel" subtitle="Where RTO originates" tone="red" />
-      <Card className="p-4">
-        <NdrFunnel data={ndrFunnel} />
-      </Card>
+      <LoadingOverlay loading={loading}>
+        <Card className="p-4">
+          <NdrFunnel data={ndrFunnel} />
+        </Card>
+      </LoadingOverlay>
 
       {/* Trend */}
       <SectionHeader title="Trend chart" tone="purple" />
@@ -209,61 +248,68 @@ export default function SupplyChainPage({ startDate, endDate, compareMode, onAsk
 
       {/* Warehouse table */}
       <SectionHeader title="Warehouse performance" subtitle={`vs ${compareMode} · target RTO ≤10%`} tone="purple" />
-      <Card className="overflow-hidden">
-        <SegmentTable rows={warehouseTable} variant="warehouse" />
-      </Card>
+      <LoadingOverlay loading={loading}>
+        <Card className="overflow-hidden">
+          <SegmentTable rows={warehouseTable} variant="warehouse" />
+        </Card>
+      </LoadingOverlay>
 
       {/* Payment table */}
       <SectionHeader title="Payment mode performance" subtitle="COD vs Prepaid" tone="amber" />
-      <Card className="overflow-hidden">
-        <SegmentTable rows={paymentTable} variant="payment" />
-      </Card>
+      <LoadingOverlay loading={loading}>
+        <Card className="overflow-hidden">
+          <SegmentTable rows={paymentTable} variant="payment" />
+        </Card>
+      </LoadingOverlay>
 
       {/* Courier table */}
       <SectionHeader title="Courier partner performance" tone="green" />
-      <Card className="overflow-hidden">
-        <SegmentTable rows={courierTable} variant="courier" />
-      </Card>
+      <LoadingOverlay loading={loading}>
+        <Card className="overflow-hidden">
+          <SegmentTable rows={courierTable} variant="courier" />
+        </Card>
+      </LoadingOverlay>
 
       {/* Courier × WH matrix */}
       <SectionHeader title="Courier × warehouse RTO% matrix" subtitle="green ≤10% · amber 10–15% · red >15%" tone="blue" />
-      <Card className="p-4">
-        <MatrixHeatmap rows={matrixRows} columns={matrixColumns} colAvg={matrixColAvg} />
-      </Card>
+      <LoadingOverlay loading={loading}>
+        <Card className="p-4">
+          <MatrixHeatmap rows={matrixRows} columns={matrixColumns} colAvg={matrixColAvg} />
+        </Card>
+      </LoadingOverlay>
 
       {/* Top pincodes */}
       <SectionHeader title="Top pincodes by RTO volume" subtitle="Block / Flag / Monitor pending threshold spec" tone="amber" />
-      <Card className="overflow-hidden">
-        <DataTable
-          getRowKey={(r) => r.pincode}
-          columns={[
-            { key: "pincode", label: "Pincode" },
-            { key: "city", label: "City" },
-            { key: "state", label: "State" },
-            { key: "orders", label: "Orders", align: "right", mono: true, render: (r) => fmt.num(r.orders) },
-            { key: "rto_orders", label: "RTO", align: "right", mono: true, render: (r) => fmt.num(r.rto_orders) },
-            { key: "rto_pct", label: "RTO %", align: "right", mono: true, render: (r) => fmt.pct(r.rto_pct) },
-            { key: "action", label: "Action", align: "right", render: (r) => r.action || "—" },
-          ]}
-          rows={pincodes}
-        />
-      </Card>
+      <LoadingOverlay loading={loading}>
+        <Card className="overflow-hidden">
+          <DataTable
+            getRowKey={(r) => r.pincode}
+            columns={[
+              { key: "pincode", label: "Pincode" },
+              { key: "city", label: "City" },
+              { key: "state", label: "State" },
+              { key: "orders", label: "Orders", align: "right", mono: true, render: (r) => fmt.num(r.orders) },
+              { key: "rto_orders", label: "RTO", align: "right", mono: true, render: (r) => fmt.num(r.rto_orders) },
+              { key: "rto_pct", label: "RTO %", align: "right", mono: true, render: (r) => fmt.pct(r.rto_pct) },
+              { key: "action", label: "Action", align: "right", render: (r) => r.action || "—" },
+            ]}
+            rows={pincodes}
+          />
+        </Card>
+      </LoadingOverlay>
 
       {/* Delivery day distribution */}
       <SectionHeader title="Ordered → delivered days" subtitle="D0..D5+" tone="blue" />
-      <Card className="p-4">
-        <DeliveryDayChart data={deliveryDays} />
-      </Card>
+      <LoadingOverlay loading={loading}>
+        <Card className="p-4">
+          <DeliveryDayChart data={deliveryDays} />
+        </Card>
+      </LoadingOverlay>
 
       {/* Alerts */}
       <SectionHeader title="Alerts and recommendations" tone="red" />
       <AlertsGrid alerts={alerts} />
 
-      {loading && (
-        <div className="fixed bottom-4 right-4 text-[11px] text-muted bg-surface border border-border rounded-full px-3 py-1 shadow-card">
-          Loading…
-        </div>
-      )}
       {error && (
         <div className="fixed bottom-4 right-4 text-[11px] text-danger bg-danger-light border border-danger/30 rounded-full px-3 py-1">
           {error}

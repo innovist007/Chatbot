@@ -24,6 +24,7 @@ async function request(url, options = {}) {
   if (res.status === 401) {
     localStorage.removeItem("auth_token");
     localStorage.removeItem("auth_user");
+    clearAiSummaryCache();
     window.location.href = "/login";
     throw new Error("Session expired. Please login again.");
   }
@@ -33,6 +34,47 @@ async function request(url, options = {}) {
     throw new Error(text || `${res.status} ${res.statusText}`);
   }
   return res.json();
+}
+
+// localStorage-backed cache for endpoints whose response barely changes within a day
+// (e.g. AI daily summaries). Returns the cached value immediately if fresh,
+// otherwise fetches, stores, and returns.
+const DEFAULT_AI_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12h
+const AI_CACHE_PREFIX = "ai-summary:";
+
+export function clearAiSummaryCache() {
+  try {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(AI_CACHE_PREFIX)) keys.push(k);
+    }
+    keys.forEach((k) => localStorage.removeItem(k));
+  } catch {
+    // storage unavailable — nothing to do
+  }
+}
+
+function cachedGet(url, cacheKey, ttlMs = DEFAULT_AI_CACHE_TTL_MS) {
+  try {
+    const raw = localStorage.getItem(cacheKey);
+    if (raw) {
+      const { value, expiresAt } = JSON.parse(raw);
+      if (typeof expiresAt === "number" && expiresAt > Date.now()) {
+        return Promise.resolve(value);
+      }
+    }
+  } catch {
+    // ignore corrupted cache entries; treat as miss
+  }
+  return request(url).then((value) => {
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify({ value, expiresAt: Date.now() + ttlMs }));
+    } catch {
+      // quota or disabled storage — still return the fresh value
+    }
+    return value;
+  });
 }
 
 export const api = {
@@ -54,7 +96,7 @@ export const api = {
       return request("/web-cr/filter-options");
     },
    aiSummary() {
-  return request("/web-cr/ai-summary");
+  return cachedGet("/web-cr/ai-summary", "ai-summary:web-cr");
 },
   },
   
@@ -91,7 +133,7 @@ export const api = {
       return request("/app-cr/filter-options");
     },
     aiSummary() {
-    return request("/app-cr/ai-summary");  // No params!
+    return cachedGet("/app-cr/ai-summary", "ai-summary:app-cr");
   },
   },
 
@@ -113,7 +155,7 @@ export const api = {
     return request(`/d2c-rto/overview?${params}`);
   },
   aiSummary() {
-    return request("/d2c-rto/ai-summary");
+    return cachedGet("/d2c-rto/ai-summary", "ai-summary:d2c-rto");
   },
 },
 
@@ -132,7 +174,7 @@ promo: {
     return request(`/promo/overview?${params}`);
   },
   aiSummary() {
-    return request("/promo/ai-summary");
+    return cachedGet("/promo/ai-summary", "ai-summary:promo");
   },
 },
 
@@ -152,7 +194,7 @@ retention: {
     return request(`/retention/overview?${params}`);
   },
   aiSummary() {
-    return request("/retention/ai-summary");
+    return cachedGet("/retention/ai-summary", "ai-summary:retention");
   },
 },
 
@@ -194,6 +236,6 @@ supplyChain: {
       : `/supply-chain/segment-options`;
     return request(url);
   },
-  aiSummary() { return request("/supply-chain/ai-summary"); },
+  aiSummary() { return cachedGet("/supply-chain/ai-summary", "ai-summary:supply-chain"); },
 },
 };

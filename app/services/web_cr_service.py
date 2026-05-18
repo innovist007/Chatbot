@@ -695,9 +695,10 @@ class WebCRService:
         self._set_cache(cache_key, result, ttl=3600)
         return result
 
-    # ====================================================== top channels by sessions
+    # ========================================================= top channels
     def top_channels(self, f: WebCRFilters) -> list[str]:
-        """All channel groups ordered by sessions desc, ignoring the channel_groups filter."""
+        """All channel_group values ordered by sessions desc, ignoring any
+        channel_groups filter so the option list stays stable when one is picked."""
         options_filter = replace(f, channel_groups=None)
         cache_key = options_filter.cache_key("top_channels")
         cached = self._get_cache(cache_key)
@@ -710,7 +711,7 @@ class WebCRService:
             COALESCE(channel_group, '(unknown)') AS channel_group,
             SUM(sessions) AS total_sessions
         FROM {self.table}
-        WHERE {where} AND channel_group IS NOT NULL
+        WHERE {where}
         GROUP BY channel_group
         HAVING total_sessions > 0
         ORDER BY total_sessions DESC
@@ -721,9 +722,8 @@ class WebCRService:
         self._set_cache(cache_key, result, ttl=3600)
         return result
 
-    # ================================================== top content groups by sessions
+    # ========================================================= top content groups
     def top_content_groups(self, f: WebCRFilters) -> list[str]:
-        """All content groups ordered by sessions desc, ignoring the content_groups filter."""
         options_filter = replace(f, content_groups=None)
         cache_key = options_filter.cache_key("top_content_groups")
         cached = self._get_cache(cache_key)
@@ -736,7 +736,7 @@ class WebCRService:
             COALESCE(content_group, '(unknown)') AS content_group,
             SUM(sessions) AS total_sessions
         FROM {self.table}
-        WHERE {where} AND content_group IS NOT NULL
+        WHERE {where}
         GROUP BY content_group
         HAVING total_sessions > 0
         ORDER BY total_sessions DESC
@@ -744,6 +744,191 @@ class WebCRService:
         """
         rows = self._run(sql, params)
         result = [r["content_group"] for r in rows]
+        self._set_cache(cache_key, result, ttl=3600)
+        return result
+
+    # ========================================================= channel table (table on Channels tab)
+    def channel_table(self, f: WebCRFilters) -> list[dict[str, Any]]:
+        """Per-channel current-period KPIs plus YoY CR delta."""
+        cache_key = f.cache_key("channel_table")
+        cached = self._get_cache(cache_key)
+        if cached is not None:
+            return cached
+
+        where, params = self._where(f)
+        sql_curr = f"""
+        SELECT
+            COALESCE(channel_group, '(unknown)') AS channel,
+            SUM(sessions) AS sessions,
+            SUM(purchases) AS purchases,
+            SUM(revenue) AS revenue,
+            SAFE_DIVIDE(SUM(purchases), SUM(sessions)) AS cr
+        FROM {self.table}
+        WHERE {where}
+        GROUP BY channel
+        ORDER BY sessions DESC
+        LIMIT 20
+        """
+        curr_rows = self._run(sql_curr, params)
+
+        yoy_filter = replace(
+            f,
+            start_date=f.start_date - timedelta(days=365),
+            end_date=f.end_date - timedelta(days=365),
+        )
+        where_yoy, params_yoy = self._where(yoy_filter)
+        sql_yoy = f"""
+        SELECT
+            COALESCE(channel_group, '(unknown)') AS channel,
+            SAFE_DIVIDE(SUM(purchases), SUM(sessions)) AS cr_yoy
+        FROM {self.table}
+        WHERE {where_yoy}
+        GROUP BY channel
+        """
+        try:
+            yoy_map = {r["channel"]: r.get("cr_yoy") for r in self._run(sql_yoy, params_yoy)}
+        except Exception as e:
+            logger.warning("channel_table YoY query failed (%s) — proceeding with no YoY", e)
+            yoy_map = {}
+
+        result = []
+        for r in curr_rows:
+            cr = r.get("cr") or 0
+            cr_yoy = yoy_map.get(r["channel"])
+            yoy_delta = ((cr - cr_yoy) / cr_yoy) if cr_yoy else None
+            result.append({**r, "yoy_delta": yoy_delta})
+
+        self._set_cache(cache_key, result, ttl=3600)
+        return result
+
+    # ========================================================= channel trend (chart on Channels tab)
+    def channel_trend(self, f: WebCRFilters, top_n: int = 5) -> dict[str, Any]:
+        """Daily CVR per top-N channel by sessions. Returns {channels, rows}
+        where rows are pivoted: [{date, channelA: cr, channelB: cr, ...}]."""
+        cache_key = f.cache_key(f"channel_trend_top{top_n}")
+        cached = self._get_cache(cache_key)
+        if cached is not None:
+            return cached
+
+        top = self.top_channels(f)[:top_n]
+        if not top:
+            empty = {"channels": [], "rows": []}
+            self._set_cache(cache_key, empty, ttl=3600)
+            return empty
+
+        where, params = self._where(f)
+        params = params + [bigquery.ArrayQueryParameter("top_channels", "STRING", top)]
+        sql = f"""
+        SELECT
+            date,
+            COALESCE(channel_group, '(unknown)') AS channel,
+            SAFE_DIVIDE(SUM(purchases), SUM(sessions)) AS cr
+        FROM {self.table}
+        WHERE {where}
+          AND channel_group IN UNNEST(@top_channels)
+        GROUP BY date, channel
+        ORDER BY date, channel
+        """
+        rows = self._run(sql, params)
+
+        pivot: dict[str, dict[str, Any]] = {}
+        for r in rows:
+            d = r["date"]
+            bucket = pivot.setdefault(d, {"date": d})
+            bucket[r["channel"]] = r.get("cr") or 0
+
+        out_rows = [pivot[d] for d in sorted(pivot.keys())]
+        result = {"channels": top, "rows": out_rows}
+        self._set_cache(cache_key, result, ttl=3600)
+        return result
+
+    # ========================================================= content group CR
+    def content_group_cr(self, f: WebCRFilters) -> list[dict[str, Any]]:
+        """Sessions & CR grouped by content_group — used for the Pages tab bar chart."""
+        cache_key = f.cache_key("content_group_cr")
+        cached = self._get_cache(cache_key)
+        if cached is not None:
+            return cached
+
+        where, params = self._where(f)
+        sql = f"""
+        SELECT
+            COALESCE(NULLIF(content_group, ''), '(not set)') AS content_group,
+            SUM(sessions) AS sessions,
+            SUM(purchases) AS purchases,
+            SAFE_DIVIDE(SUM(purchases), SUM(sessions)) AS cr,
+            SUM(revenue) AS revenue
+        FROM {self.table}
+        WHERE {where}
+        GROUP BY content_group
+        HAVING sessions > 0
+        ORDER BY sessions DESC
+        LIMIT 10
+        """
+        result = self._run(sql, params)
+        self._set_cache(cache_key, result, ttl=3600)
+        return result
+
+    # ========================================================= product pages
+    def product_pages(self, f: WebCRFilters) -> list[dict[str, Any]]:
+        """Product-page-level analytics — landing pages whose URL looks like a PDP.
+        Returns PDP views, ATC count, ATC rate, purchase CVR, revenue."""
+        cache_key = f.cache_key("product_pages")
+        cached = self._get_cache(cache_key)
+        if cached is not None:
+            return cached
+
+        where, params = self._where(f)
+        sql = f"""
+        SELECT
+            COALESCE(landing_page, '(unknown)') AS landing_page,
+            SUM(sessions) AS sessions,
+            SUM(views) AS pdp_views,
+            SUM(add_to_cart) AS add_to_cart,
+            SUM(purchases) AS purchases,
+            SUM(revenue) AS revenue,
+            SAFE_DIVIDE(SUM(add_to_cart), NULLIF(SUM(views), 0)) AS atc_rate,
+            SAFE_DIVIDE(SUM(purchases), NULLIF(SUM(sessions), 0)) AS cr
+        FROM {self.table}
+        WHERE {where}
+          AND (LOWER(landing_page) LIKE '/product%' OR LOWER(landing_page) LIKE '%/products/%')
+        GROUP BY landing_page
+        HAVING pdp_views > 0
+        ORDER BY revenue DESC
+        LIMIT 50
+        """
+        result = self._run(sql, params)
+        self._set_cache(cache_key, result, ttl=3600)
+        return result
+
+    # ========================================================= top campaigns
+    def top_campaigns(self, f: WebCRFilters) -> list[dict[str, Any]]:
+        """Campaign-level funnel rollup — sessions, ATC, begin_checkout,
+        purchases, CVR, AOV, revenue. Excludes empty campaign names."""
+        cache_key = f.cache_key("top_campaigns")
+        cached = self._get_cache(cache_key)
+        if cached is not None:
+            return cached
+
+        where, params = self._where(f)
+        sql = f"""
+        SELECT
+            COALESCE(NULLIF(campaign, ''), '(not set)') AS campaign,
+            SUM(sessions) AS sessions,
+            SUM(add_to_cart) AS add_to_cart,
+            SUM(begin_checkout) AS begin_checkout,
+            SUM(purchases) AS purchases,
+            SUM(revenue) AS revenue,
+            SAFE_DIVIDE(SUM(purchases), NULLIF(SUM(sessions), 0)) AS cr,
+            SAFE_DIVIDE(SUM(revenue), NULLIF(SUM(purchases), 0)) AS aov
+        FROM {self.table}
+        WHERE {where}
+        GROUP BY campaign
+        HAVING sessions > 0
+        ORDER BY revenue DESC
+        LIMIT 50
+        """
+        result = self._run(sql, params)
         self._set_cache(cache_key, result, ttl=3600)
         return result
 

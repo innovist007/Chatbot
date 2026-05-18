@@ -106,15 +106,8 @@ function ClassicFunnel({ steps }) {
               {fmt.num(s.count)} · {fmt.pct(s.overall_pct, 1)}
             </text>
 
-            {/* Left: drop-off pill */}
-            {isBase ? (
-              <g>
-                <rect x="6" y={y + rowH / 2 - 8} width="34" height="16" rx="3" fill="#F1EFE8" />
-                <text x="23" y={y + rowH / 2 + 3} textAnchor="middle" fontSize="9" fontWeight="600" fill="#5F5E5A">
-                  base
-                </text>
-              </g>
-            ) : (
+            {/* Left: drop-off pill (hidden on the first step — nothing to compare against) */}
+            {!isBase && (
               <g>
                 <line
                   x1={topLeft}
@@ -242,7 +235,7 @@ function FunnelMetricsTable({ steps }) {
                 <td className="px-3 py-2 text-right tnum">{isBase ? "—" : fmt.pct(s.step_conversion, 1)}</td>
                 <td className="px-3 py-2 text-right">
                   {isBase ? (
-                    <Pill tone="neutral" className="text-[10px]">base</Pill>
+                    <span className="text-muted">—</span>
                   ) : isFinal ? (
                     <Pill tone="green" className="text-[10px]">FINAL</Pill>
                   ) : (
@@ -520,7 +513,7 @@ function PageMicroFunnelTable({ rows }) {
             return (
               <tr key={r.landing_page + i} className={i % 2 ? "" : "bg-elevated/30"}>
                 <td
-                  className="px-3 py-2 font-mono text-[11px] text-sky-700 dark:text-sky-400 truncate max-w-[260px]"
+                  className="px-3 py-2 font-mono text-[11px] font-medium text-sc-blue truncate max-w-[260px]"
                   title={r.landing_page}
                 >
                   {r.landing_page}
