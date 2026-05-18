@@ -73,8 +73,8 @@ class AppCRService:
         # Initialize Redis
         try:
             self.redis_client = redis.Redis(
-                host='localhost',
-                port=6379,
+                host=settings.redis_host,
+                port=settings.redis_port,
                 db=0,
                 decode_responses=True,
                 socket_connect_timeout=2

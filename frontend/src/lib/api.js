@@ -93,7 +93,7 @@ export const api = {
       return request(`/web-cr?${params}`);
     },
     filterOptions() {
-      return request("/web-cr/filter-options");
+      return cachedGet("/web-cr/filter-options", "filter-opts:web-cr", 4 * 60 * 60 * 1000);
     },
    aiSummary() {
   return cachedGet("/web-cr/ai-summary", "ai-summary:web-cr");
@@ -112,7 +112,7 @@ export const api = {
       return request(`/d2c/overview?${params}`);
     },
     filterOptions() {
-      return request("/d2c/filter-options");
+      return cachedGet("/d2c/filter-options", "filter-opts:d2c", 4 * 60 * 60 * 1000);
     },
   },
   
@@ -130,7 +130,7 @@ export const api = {
       return request(`/app-cr/overview?${params}`);
     },
     filterOptions() {
-      return request("/app-cr/filter-options");
+      return cachedGet("/app-cr/filter-options", "filter-opts:app-cr", 4 * 60 * 60 * 1000);
     },
     aiSummary() {
     return cachedGet("/app-cr/ai-summary", "ai-summary:app-cr");
@@ -224,7 +224,7 @@ acquisition: {
     return request(`/acquisition/table?${params}`);
   },
   filterOptions() {
-    return request("/acquisition/filter-options");
+    return cachedGet("/acquisition/filter-options", "filter-opts:acquisition", 4 * 60 * 60 * 1000);
   },
 },
 
@@ -264,7 +264,7 @@ supplyChain: {
     const url = segment
       ? `/supply-chain/segment-options?segment=${encodeURIComponent(segment)}`
       : `/supply-chain/segment-options`;
-    return request(url);
+    return cachedGet(url, `filter-opts:sc-segment:${segment || "all"}`, 4 * 60 * 60 * 1000);
   },
   aiSummary() { return cachedGet("/supply-chain/ai-summary", "ai-summary:supply-chain"); },
 },

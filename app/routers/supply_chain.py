@@ -2,10 +2,11 @@
 import asyncio
 import logging
 from datetime import date
+from functools import lru_cache
 
 from fastapi import APIRouter, Depends, Query
 
-from app.config import Settings, get_settings
+from app.config import get_settings
 from app.deps import get_agent_service
 from app.routers.auth import get_current_user
 from app.services.agent_service import AgentService
@@ -37,27 +38,41 @@ def _filters(
     )
 
 
-def _service(settings: Settings = Depends(get_settings)) -> SupplyChainService:
-    return SupplyChainService(settings)
+@lru_cache
+def _service() -> SupplyChainService:
+    return SupplyChainService(get_settings())
 
 
 # ============================================== Bundled overview
 @router.get("/overview", summary="Bundled KPI sections for the dashboard top")
 async def overview(
     f: SupplyChainFilters = Depends(_filters),
-    svc: SupplyChainService = Depends(_service),
 ) -> dict:
-    overview_data, waterfall, ndr_funnel, delivery_day = await asyncio.gather(
+    svc = _service()
+    (
+        overview_data, waterfall, ndr_funnel, delivery_day,
+        wh_table, co_table, pm_table, matrix, pincodes,
+    ) = await asyncio.gather(
         asyncio.to_thread(svc.overview, f),
         asyncio.to_thread(svc.waterfall, f),
         asyncio.to_thread(svc.ndr_funnel, f),
         asyncio.to_thread(svc.delivery_day_distribution, f),
+        asyncio.to_thread(svc.warehouse_table, f),
+        asyncio.to_thread(svc.courier_table, f),
+        asyncio.to_thread(svc.payment_table, f),
+        asyncio.to_thread(svc.courier_wh_matrix, f),
+        asyncio.to_thread(svc.top_pincodes, f, 10),
     )
     return {
         "overview": overview_data,
         "waterfall": waterfall,
         "ndr_funnel": ndr_funnel,
         "delivery_day_distribution": delivery_day,
+        "warehouse_table": wh_table,
+        "courier_table": co_table,
+        "payment_table": pm_table,
+        "courier_wh_matrix": matrix,
+        "top_pincodes": pincodes,
     }
 
 
@@ -65,66 +80,58 @@ async def overview(
 @router.get("/waterfall", summary="Order waterfall: Total → Cancelled → RTO → Others → In-transit → Delivered")
 async def waterfall(
     f: SupplyChainFilters = Depends(_filters),
-    svc: SupplyChainService = Depends(_service),
 ) -> dict:
-    return await asyncio.to_thread(svc.waterfall, f)
+    return await asyncio.to_thread(_service().waterfall, f)
 
 
 @router.get("/ndr-funnel", summary="NDR → Re-attempt → Delivered / RTO funnel")
 async def ndr_funnel(
     f: SupplyChainFilters = Depends(_filters),
-    svc: SupplyChainService = Depends(_service),
 ) -> dict:
-    return await asyncio.to_thread(svc.ndr_funnel, f)
+    return await asyncio.to_thread(_service().ndr_funnel, f)
 
 
 @router.get("/warehouse-table", summary="Per-warehouse performance table")
 async def warehouse_table(
     f: SupplyChainFilters = Depends(_filters),
-    svc: SupplyChainService = Depends(_service),
 ) -> list[dict]:
-    return await asyncio.to_thread(svc.warehouse_table, f)
+    return await asyncio.to_thread(_service().warehouse_table, f)
 
 
 @router.get("/courier-table", summary="Per-courier performance table")
 async def courier_table(
     f: SupplyChainFilters = Depends(_filters),
-    svc: SupplyChainService = Depends(_service),
 ) -> list[dict]:
-    return await asyncio.to_thread(svc.courier_table, f)
+    return await asyncio.to_thread(_service().courier_table, f)
 
 
 @router.get("/payment-table", summary="COD vs Prepaid performance table")
 async def payment_table(
     f: SupplyChainFilters = Depends(_filters),
-    svc: SupplyChainService = Depends(_service),
 ) -> list[dict]:
-    return await asyncio.to_thread(svc.payment_table, f)
+    return await asyncio.to_thread(_service().payment_table, f)
 
 
 @router.get("/courier-wh-matrix", summary="Courier × warehouse RTO% matrix with row + column averages")
 async def courier_wh_matrix(
     f: SupplyChainFilters = Depends(_filters),
-    svc: SupplyChainService = Depends(_service),
 ) -> dict:
-    return await asyncio.to_thread(svc.courier_wh_matrix, f)
+    return await asyncio.to_thread(_service().courier_wh_matrix, f)
 
 
 @router.get("/top-pincodes", summary="Top pincodes by RTO volume")
 async def top_pincodes(
     limit: int = Query(10, ge=1, le=200),
     f: SupplyChainFilters = Depends(_filters),
-    svc: SupplyChainService = Depends(_service),
 ) -> list[dict]:
-    return await asyncio.to_thread(svc.top_pincodes, f, limit)
+    return await asyncio.to_thread(_service().top_pincodes, f, limit)
 
 
 @router.get("/delivery-day-distribution", summary="Ordered → delivered day histogram (D0..D5+)")
 async def delivery_day_distribution(
     f: SupplyChainFilters = Depends(_filters),
-    svc: SupplyChainService = Depends(_service),
 ) -> list[dict]:
-    return await asyncio.to_thread(svc.delivery_day_distribution, f)
+    return await asyncio.to_thread(_service().delivery_day_distribution, f)
 
 
 # ============================================== Trend chart
@@ -135,17 +142,16 @@ async def trend(
     granularity: str = Query("MoM", description="DoD | WoW | MoM"),
     sub_filter: str | None = Query(None, description="Specific segment value, or 'all' for overlay"),
     f: SupplyChainFilters = Depends(_filters),
-    svc: SupplyChainService = Depends(_service),
 ) -> dict:
-    return await asyncio.to_thread(svc.trend, f, segment, metric, granularity, sub_filter)
+    return await asyncio.to_thread(_service().trend, f, segment, metric, granularity, sub_filter)
 
 
 # ============================================== Sub-pill options
 @router.get("/segment-options", summary="Distinct values for a segment (warehouse / courier / payment / daytype)")
 async def segment_options(
     segment: str | None = Query(None, description="Omit to get options for all segments"),
-    svc: SupplyChainService = Depends(_service),
 ) -> dict:
+    svc = _service()
     if segment:
         if segment not in SEGMENT_COLUMNS:
             return {"segment": segment, "options": []}
@@ -156,10 +162,9 @@ async def segment_options(
 # ============================================== AI summary
 @router.get("/ai-summary", summary="AI summary for the most recent day. Cached 24h.")
 async def ai_summary(
-    settings: Settings = Depends(get_settings),
     agent: AgentService = Depends(get_agent_service),
 ) -> dict[str, str | None]:
-    svc = SupplyChainService(settings)
+    svc = _service()
     latest = await asyncio.to_thread(svc.get_latest_date)
     if not latest:
         return {"summary": "No data available", "date": None}

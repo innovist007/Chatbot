@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     allowed_email_domain: str = "onestolabs.com"
     # =====================================================
 
+    # Redis cache (Cloud Memorystore in prod; localhost for local dev)
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+
     # ---------- Derived helpers ----------
     @property
     def billing_project(self) -> str:

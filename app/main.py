@@ -1,9 +1,12 @@
 """FastAPI application entrypoint."""
+import asyncio
+import concurrent.futures
 import logging
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -35,6 +38,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 app.include_router(chat.router)
 app.include_router(dashboard.router)
@@ -72,5 +76,7 @@ def health() -> dict:
 
 
 @app.on_event("startup")
-def _log_startup() -> None:
-    logger.info("Starting up — agent=%s", settings.agent_resource)
+async def _startup() -> None:
+    loop = asyncio.get_running_loop()
+    loop.set_default_executor(concurrent.futures.ThreadPoolExecutor(max_workers=40))
+    logger.info("Starting up — agent=%s  thread_pool=40", settings.agent_resource)

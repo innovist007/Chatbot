@@ -66,27 +66,25 @@ export default function SupplyChainPage({ startDate, endDate, compareMode, onAsk
       .catch(() => setSubOptions({}));
   }, []);
 
-  // Bundled overview + tables + matrix + pincodes
+  // Bundled overview + tables + matrix + pincodes (single HTTP call)
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    Promise.all([
-      api.supplyChain.overview(filters),
-      api.supplyChain.warehouseTable(filters),
-      api.supplyChain.courierTable(filters),
-      api.supplyChain.paymentTable(filters),
-      api.supplyChain.courierWhMatrix(filters),
-      api.supplyChain.topPincodes(filters, 10),
-    ])
-      .then(([ov, wh, co, pm, mx, pc]) => {
+    api.supplyChain.overview(filters)
+      .then((d) => {
         if (cancelled) return;
-        setOverview(ov);
-        setWarehouseTable(wh);
-        setCourierTable(co);
-        setPaymentTable(pm);
-        setMatrix(mx);
-        setPincodes(pc);
+        setOverview({
+          overview: d.overview,
+          waterfall: d.waterfall,
+          ndr_funnel: d.ndr_funnel,
+          delivery_day_distribution: d.delivery_day_distribution,
+        });
+        setWarehouseTable(d.warehouse_table || []);
+        setCourierTable(d.courier_table || []);
+        setPaymentTable(d.payment_table || []);
+        setMatrix(d.courier_wh_matrix);
+        setPincodes(d.top_pincodes || []);
         setLoading(false);
         setInitialLoading(false);
       })
