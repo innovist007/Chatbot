@@ -21,6 +21,7 @@ const SECOND_NAV = [
   { to: "/repeat", label: "Repeat & retention", enabled: true },
   { to: "/promo", label: "Promo & basket", enabled: true },
   { to: "/supply", label: "Supply chain", enabled: true },
+  { to: "/acquisition", label: "Acquisition", enabled: true },
 ];
 
 export function TwoTierNav({ 

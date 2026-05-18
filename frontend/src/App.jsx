@@ -11,6 +11,7 @@ import D2CRtoPage from "./pages/D2CRtoPage";
 import PromoBasketPage from "./pages/PromoBasketPage";
 import RetentionPage from "./pages/RetentionPage";
 import SupplyChainPage from "./pages/SupplyChainPage";
+import AcquisitionPage from "./pages/AcquisitionPage";
 import { todayISO, daysAgoISO } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
 import { toast } from "sonner";
@@ -139,6 +140,18 @@ function handleDateChange({ start, end }) {
             path="/supply"
             element={
               <SupplyChainPage
+                startDate={startDate}
+                endDate={endDate}
+                compareMode={compareMode}
+                onAskChat={askChat}
+              />
+            }
+          />
+
+          <Route
+            path="/acquisition"
+            element={
+              <AcquisitionPage
                 startDate={startDate}
                 endDate={endDate}
                 compareMode={compareMode}

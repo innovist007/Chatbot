@@ -1,6 +1,7 @@
 """Web CR dashboard endpoints — direct BigQuery, no LLM."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import date, timedelta
 from functools import lru_cache
@@ -51,7 +52,7 @@ def _parse_filters(
 
 
 @router.get("", summary="Full Web CR dashboard payload")
-def web_cr(
+async def web_cr(
     start_date: date | None = Query(None),
     end_date: date | None = Query(None),
     channel_groups: list[str] | None = Query(None),
@@ -68,31 +69,74 @@ def web_cr(
     )
     svc = _service()
     try:
+        (
+            overview,
+            funnel,
+            funnel_by_channel,
+            funnel_by_device,
+            funnel_heatmap,
+            page_funnel,
+            top_landing_pages,
+            top_channels,
+            top_content_groups,
+            channel_table,
+            channel_trend,
+            content_group_cr,
+            product_pages,
+            top_campaigns,
+            by_source,
+            by_device,
+            by_country,
+            landing_pages_data,
+            by_hour,
+            cr_trend,
+        ) = await asyncio.gather(
+            asyncio.to_thread(svc.overview, f),
+            asyncio.to_thread(svc.funnel, f),
+            asyncio.to_thread(svc.funnel_by_channel, f),
+            asyncio.to_thread(svc.funnel_by_device, f),
+            asyncio.to_thread(svc.funnel_hourly_heatmap, f),
+            asyncio.to_thread(svc.page_funnel, f),
+            asyncio.to_thread(svc.top_landing_pages, f),
+            asyncio.to_thread(svc.top_channels, f),
+            asyncio.to_thread(svc.top_content_groups, f),
+            asyncio.to_thread(svc.channel_table, f),
+            asyncio.to_thread(svc.channel_trend, f, 5),
+            asyncio.to_thread(svc.content_group_cr, f),
+            asyncio.to_thread(svc.product_pages, f),
+            asyncio.to_thread(svc.top_campaigns, f),
+            asyncio.to_thread(svc.by_source, f),
+            asyncio.to_thread(svc.by_device, f),
+            asyncio.to_thread(svc.by_country, f),
+            asyncio.to_thread(svc.landing_pages, f),
+            asyncio.to_thread(svc.by_hour, f),
+            asyncio.to_thread(svc.cr_trend, f),
+        )
         return {
             "filters": {
                 "start_date": f.start_date.isoformat(),
                 "end_date": f.end_date.isoformat(),
             },
-            "overview":          svc.overview(f),
-            "funnel":            svc.funnel(f),
-            "funnel_by_channel": svc.funnel_by_channel(f),
-            "funnel_by_device":  svc.funnel_by_device(f),
-            "funnel_heatmap":    svc.funnel_hourly_heatmap(f),
-            "page_funnel":        svc.page_funnel(f),
-            "top_landing_pages":  svc.top_landing_pages(f),
-            "top_channels":       svc.top_channels(f),
-            "top_content_groups": svc.top_content_groups(f),
-            "channel_table":      svc.channel_table(f),
-            "channel_trend":      svc.channel_trend(f, top_n=5),
-            "content_group_cr":   svc.content_group_cr(f),
-            "product_pages":      svc.product_pages(f),
-            "top_campaigns":      svc.top_campaigns(f),
-            "by_source":         svc.by_source(f),
-            "by_device":         svc.by_device(f),
-            "by_country":        svc.by_country(f),
-            "landing_pages":     svc.landing_pages(f),
-            "by_hour":           svc.by_hour(f),
-            "cr_trend":          svc.cr_trend(f),
+            "overview":          overview,
+            "funnel":            funnel,
+            "funnel_by_channel": funnel_by_channel,
+            "funnel_by_device":  funnel_by_device,
+            "funnel_heatmap":    funnel_heatmap,
+            "page_funnel":       page_funnel,
+            "top_landing_pages": top_landing_pages,
+            "top_channels":      top_channels,
+            "top_content_groups": top_content_groups,
+            "channel_table":     channel_table,
+            "channel_trend":     channel_trend,
+            "content_group_cr":  content_group_cr,
+            "product_pages":     product_pages,
+            "top_campaigns":     top_campaigns,
+            "by_source":         by_source,
+            "by_device":         by_device,
+            "by_country":        by_country,
+            "landing_pages":     landing_pages_data,
+            "by_hour":           by_hour,
+            "cr_trend":          cr_trend,
         }
     except Exception as exc:  # noqa: BLE001
         logger.exception("web_cr dashboard failed")
@@ -103,9 +147,9 @@ def web_cr(
 
 
 @router.get("/filter-options", summary="Distinct values for Web CR dropdowns")
-def filter_options() -> dict[str, list[str]]:
+async def filter_options() -> dict[str, list[str]]:
     try:
-        return _service().filter_options()
+        return await asyncio.to_thread(_service().filter_options)
     except Exception as exc:  # noqa: BLE001
         logger.exception("web_cr filter_options failed")
         raise HTTPException(
@@ -115,27 +159,21 @@ def filter_options() -> dict[str, list[str]]:
 
 # For AI summary
 @router.get("/ai-summary", summary="AI summary of latest day data")
-def web_cr_ai_summary(
+async def web_cr_ai_summary(
     settings: Settings = Depends(get_settings),
     agent: AgentService = Depends(get_agent_service),
 ) -> dict[str, str]:
-    """Generate AI summary for the most recent day in data. Cached 24h."""
-    
-    # Create service instance
     service = WebCRService(settings)
-    
-    # Get most recent date with data
-    latest_date = service.get_latest_date()
+
+    latest_date = await asyncio.to_thread(service.get_latest_date)
     if not latest_date:
         return {"summary": "No data available", "date": None}
-    
-    # Cache key based on the latest date
+
     cache_key = f"web_cr_ai_summary:{latest_date.isoformat()}"
     cached = service._get_cache(cache_key)
     if cached:
         return cached
-    
-    # Build prompt
+
     prompt = f"""Generate a brief 3-4 sentence executive summary of WEBSITE performance for {latest_date.isoformat()}.
 
 CRITICAL: Use ONLY data from this specific table:
@@ -163,13 +201,11 @@ IMPORTANT RULES:
 - Just flowing prose with key WEBSITE metrics"""
 
     try:
-        result = agent.ask(prompt)
-        answer = result.get("answer", "Unable to generate summary")
+        result = await asyncio.to_thread(agent.ask, prompt)
         response = {
-            "summary": answer,
+            "summary": result.get("answer", "Unable to generate summary"),
             "date": latest_date.isoformat(),
         }
-        # Cache for 24 hours
         service._set_cache(cache_key, response, ttl=86400)
         return response
     except Exception as exc:

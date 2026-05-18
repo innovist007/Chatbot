@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
-from app.routers import chat, d2c_rto, dashboard, web_cr,d2c_router,app_cr,auth,promo_basket,supply_chain;
+from app.routers import chat, d2c_rto, dashboard, web_cr, d2c_router, app_cr, auth, promo_basket, supply_chain, acquisition
 
 settings = get_settings()
 
@@ -45,6 +45,7 @@ app.include_router(auth.router)
 app.include_router(d2c_rto.router)
 app.include_router(promo_basket.router)
 app.include_router(supply_chain.router)
+app.include_router(acquisition.router)
 
 # --- Serve the small HTML/JS client at /ui ---------------------------------
 UI_DIR = Path(__file__).parent.parent / "static"

@@ -198,6 +198,36 @@ retention: {
   },
 },
 
+acquisition: {
+  _buildParams({ startDate, endDate, campaigns, stages, creativeTypes, brands, languages, adNames } = {}) {
+    const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
+    (campaigns || []).forEach((v) => params.append("campaigns", v));
+    (stages || []).forEach((v) => params.append("stages", v));
+    (creativeTypes || []).forEach((v) => params.append("creative_types", v));
+    (brands || []).forEach((v) => params.append("brands", v));
+    (languages || []).forEach((v) => params.append("languages", v));
+    (adNames || []).forEach((v) => params.append("ad_names", v));
+    return params;
+  },
+  overview(filters = {}) {
+    return request(`/acquisition/overview?${this._buildParams(filters)}`);
+  },
+  trend(filters = {}, granularity = "day") {
+    const params = this._buildParams(filters);
+    params.set("granularity", granularity);
+    return request(`/acquisition/trend?${params}`);
+  },
+  table(filters = {}, level = "campaign", compareMode = "MoM") {
+    const params = this._buildParams(filters);
+    params.set("level", level);
+    params.set("compare_mode", compareMode);
+    return request(`/acquisition/table?${params}`);
+  },
+  filterOptions() {
+    return request("/acquisition/filter-options");
+  },
+},
+
 supplyChain: {
   _baseParams(filters) {
     const p = new URLSearchParams({

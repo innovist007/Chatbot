@@ -1,4 +1,5 @@
 """Supply chain dashboard endpoints."""
+import asyncio
 import logging
 from datetime import date
 
@@ -42,87 +43,93 @@ def _service(settings: Settings = Depends(get_settings)) -> SupplyChainService:
 
 # ============================================== Bundled overview
 @router.get("/overview", summary="Bundled KPI sections for the dashboard top")
-def overview(
+async def overview(
     f: SupplyChainFilters = Depends(_filters),
     svc: SupplyChainService = Depends(_service),
 ) -> dict:
+    overview_data, waterfall, ndr_funnel, delivery_day = await asyncio.gather(
+        asyncio.to_thread(svc.overview, f),
+        asyncio.to_thread(svc.waterfall, f),
+        asyncio.to_thread(svc.ndr_funnel, f),
+        asyncio.to_thread(svc.delivery_day_distribution, f),
+    )
     return {
-        "overview": svc.overview(f),
-        "waterfall": svc.waterfall(f),
-        "ndr_funnel": svc.ndr_funnel(f),
-        "delivery_day_distribution": svc.delivery_day_distribution(f),
+        "overview": overview_data,
+        "waterfall": waterfall,
+        "ndr_funnel": ndr_funnel,
+        "delivery_day_distribution": delivery_day,
     }
 
 
 # ============================================== Per-section endpoints
 @router.get("/waterfall", summary="Order waterfall: Total → Cancelled → RTO → Others → In-transit → Delivered")
-def waterfall(
+async def waterfall(
     f: SupplyChainFilters = Depends(_filters),
     svc: SupplyChainService = Depends(_service),
 ) -> dict:
-    return svc.waterfall(f)
+    return await asyncio.to_thread(svc.waterfall, f)
 
 
 @router.get("/ndr-funnel", summary="NDR → Re-attempt → Delivered / RTO funnel")
-def ndr_funnel(
+async def ndr_funnel(
     f: SupplyChainFilters = Depends(_filters),
     svc: SupplyChainService = Depends(_service),
 ) -> dict:
-    return svc.ndr_funnel(f)
+    return await asyncio.to_thread(svc.ndr_funnel, f)
 
 
 @router.get("/warehouse-table", summary="Per-warehouse performance table")
-def warehouse_table(
+async def warehouse_table(
     f: SupplyChainFilters = Depends(_filters),
     svc: SupplyChainService = Depends(_service),
 ) -> list[dict]:
-    return svc.warehouse_table(f)
+    return await asyncio.to_thread(svc.warehouse_table, f)
 
 
 @router.get("/courier-table", summary="Per-courier performance table")
-def courier_table(
+async def courier_table(
     f: SupplyChainFilters = Depends(_filters),
     svc: SupplyChainService = Depends(_service),
 ) -> list[dict]:
-    return svc.courier_table(f)
+    return await asyncio.to_thread(svc.courier_table, f)
 
 
 @router.get("/payment-table", summary="COD vs Prepaid performance table")
-def payment_table(
+async def payment_table(
     f: SupplyChainFilters = Depends(_filters),
     svc: SupplyChainService = Depends(_service),
 ) -> list[dict]:
-    return svc.payment_table(f)
+    return await asyncio.to_thread(svc.payment_table, f)
 
 
 @router.get("/courier-wh-matrix", summary="Courier × warehouse RTO% matrix with row + column averages")
-def courier_wh_matrix(
+async def courier_wh_matrix(
     f: SupplyChainFilters = Depends(_filters),
     svc: SupplyChainService = Depends(_service),
 ) -> dict:
-    return svc.courier_wh_matrix(f)
+    return await asyncio.to_thread(svc.courier_wh_matrix, f)
 
 
 @router.get("/top-pincodes", summary="Top pincodes by RTO volume")
-def top_pincodes(
+async def top_pincodes(
     limit: int = Query(10, ge=1, le=200),
     f: SupplyChainFilters = Depends(_filters),
     svc: SupplyChainService = Depends(_service),
 ) -> list[dict]:
-    return svc.top_pincodes(f, limit=limit)
+    return await asyncio.to_thread(svc.top_pincodes, f, limit)
 
 
 @router.get("/delivery-day-distribution", summary="Ordered → delivered day histogram (D0..D5+)")
-def delivery_day_distribution(
+async def delivery_day_distribution(
     f: SupplyChainFilters = Depends(_filters),
     svc: SupplyChainService = Depends(_service),
 ) -> list[dict]:
-    return svc.delivery_day_distribution(f)
+    return await asyncio.to_thread(svc.delivery_day_distribution, f)
 
 
 # ============================================== Trend chart
 @router.get("/trend", summary="Trend chart driven by segment + metric + granularity")
-def trend(
+async def trend(
     segment: str = Query("overall", description="overall | warehouse | courier | payment | daytype"),
     metric: str = Query("rto", description="rto | orders | eta | ndr | delivered_revenue"),
     granularity: str = Query("MoM", description="DoD | WoW | MoM"),
@@ -130,30 +137,30 @@ def trend(
     f: SupplyChainFilters = Depends(_filters),
     svc: SupplyChainService = Depends(_service),
 ) -> dict:
-    return svc.trend(f, segment=segment, metric=metric, granularity=granularity, sub_filter=sub_filter)
+    return await asyncio.to_thread(svc.trend, f, segment, metric, granularity, sub_filter)
 
 
 # ============================================== Sub-pill options
 @router.get("/segment-options", summary="Distinct values for a segment (warehouse / courier / payment / daytype)")
-def segment_options(
+async def segment_options(
     segment: str | None = Query(None, description="Omit to get options for all segments"),
     svc: SupplyChainService = Depends(_service),
 ) -> dict:
     if segment:
         if segment not in SEGMENT_COLUMNS:
             return {"segment": segment, "options": []}
-        return {"segment": segment, "options": svc.segment_options(segment)}
-    return svc.all_segment_options()
+        return await asyncio.to_thread(svc.segment_options, segment)
+    return await asyncio.to_thread(svc.all_segment_options)
 
 
 # ============================================== AI summary
 @router.get("/ai-summary", summary="AI summary for the most recent day. Cached 24h.")
-def ai_summary(
+async def ai_summary(
     settings: Settings = Depends(get_settings),
     agent: AgentService = Depends(get_agent_service),
 ) -> dict[str, str | None]:
     svc = SupplyChainService(settings)
-    latest = svc.get_latest_date()
+    latest = await asyncio.to_thread(svc.get_latest_date)
     if not latest:
         return {"summary": "No data available", "date": None}
 
@@ -179,7 +186,7 @@ IMPORTANT RULES:
 - Mention specific numbers / percentages / partner names
 """
     try:
-        result = agent.ask(prompt)
+        result = await asyncio.to_thread(agent.ask, prompt)
         response = {
             "summary": result.get("answer", "Unable to generate summary"),
             "date": latest.isoformat(),
