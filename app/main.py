@@ -1,14 +1,17 @@
 """FastAPI application entrypoint."""
+import asyncio
+import concurrent.futures
 import logging
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
-from app.routers import chat, d2c_rto, dashboard, web_cr,d2c_router,app_cr,auth,promo_basket;
+from app.routers import chat, d2c_rto, dashboard, web_cr, d2c_router, app_cr, auth, promo_basket, supply_chain, acquisition
 
 settings = get_settings()
 
@@ -35,6 +38,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 app.include_router(chat.router)
 app.include_router(dashboard.router)
@@ -44,6 +48,8 @@ app.include_router(app_cr.router)
 app.include_router(auth.router)
 app.include_router(d2c_rto.router)
 app.include_router(promo_basket.router)
+app.include_router(supply_chain.router)
+app.include_router(acquisition.router)
 
 # --- Serve the small HTML/JS client at /ui ---------------------------------
 UI_DIR = Path(__file__).parent.parent / "static"
@@ -70,5 +76,7 @@ def health() -> dict:
 
 
 @app.on_event("startup")
-def _log_startup() -> None:
-    logger.info("Starting up — agent=%s", settings.agent_resource)
+async def _startup() -> None:
+    loop = asyncio.get_running_loop()
+    loop.set_default_executor(concurrent.futures.ThreadPoolExecutor(max_workers=40))
+    logger.info("Starting up — agent=%s  thread_pool=40", settings.agent_resource)

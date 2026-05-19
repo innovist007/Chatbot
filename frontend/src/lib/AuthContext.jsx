@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { clearAiSummaryCache } from "./api";
 
 const AuthContext = createContext(null);
 
@@ -38,6 +39,7 @@ export function AuthProvider({ children }) {
   function logout() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    clearAiSummaryCache();
     setToken(null);
     setUser(null);
   }

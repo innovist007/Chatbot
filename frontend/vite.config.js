@@ -14,6 +14,8 @@ server: {
   proxy: {
     // Only proxy actual API endpoints (with sub-paths)
     "/auth/google": "http://localhost:8000",
+    "/auth/verify-otp": "http://localhost:8000",
+    "/auth/resend-otp": "http://localhost:8000",
     "/auth/me": "http://localhost:8000",
     "/auth/logout": "http://localhost:8000",
     
@@ -43,6 +45,12 @@ server: {
     "/retention/ai-summary": "http://localhost:8000",
     
     "/dashboard": {
+      target: "http://localhost:8000",
+      changeOrigin: true,
+    },
+
+    // Supply chain — single prefix covers every sub-endpoint
+    "/supply-chain": {
       target: "http://localhost:8000",
       changeOrigin: true,
     },
