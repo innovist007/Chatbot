@@ -122,16 +122,16 @@ function handleDateChange({ start, end }) {
            compareMode={compareMode} />} 
            />
 
-           <Route 
-    path="/repeat" 
+           <Route
+    path="/repeat"
   element={
-    <RetentionPage 
-      onAskChat={askChat} 
-      startDate={startDate} 
-      endDate={endDate} 
-      compareMode={compareMode} 
+    <RetentionPage
+      onAskChat={askChat}
+      startDate={startDate}
+      endDate={endDate}
+      compareMode={compareMode}
     />
-  } 
+  }
 />
 
         </Routes>

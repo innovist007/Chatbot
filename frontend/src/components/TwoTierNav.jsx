@@ -22,13 +22,13 @@ const SECOND_NAV = [
   { to: "/promo", label: "Promo & basket", enabled: true },
 ];
 
-export function TwoTierNav({ 
+export function TwoTierNav({
   startDate,
   endDate,
-  onDateChange, 
-  compareMode, 
+  onDateChange,
+  compareMode,
   onCompareModeChange,
-  onAskBot 
+  onAskBot
 }) {
   return (
     <div className="border-b border-border bg-surface sticky top-0 z-30 shadow-sm">

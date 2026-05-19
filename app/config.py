@@ -39,6 +39,22 @@ class Settings(BaseSettings):
     allowed_email_domain: str = "onestolabs.com"
     # =====================================================
 
+    # ============= Email OTP (2FA) =============
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from_name: str = "Innovist Analytics"
+
+    otp_length: int = 6
+    otp_expire_minutes: int = 10
+    otp_max_attempts: int = 5
+
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_db: int = 0
+    # ===========================================
+
     # ---------- Derived helpers ----------
     @property
     def billing_project(self) -> str:
