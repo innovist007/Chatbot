@@ -564,11 +564,6 @@ export default function AcquisitionPage({ startDate, endDate, compareMode }) {
 
   return (
     <div className="px-6 py-6 max-w-[1600px] mx-auto space-y-6">
-      <div>
-        <h1 className="text-lg font-bold text-text tracking-tight">Acquisition</h1>
-        <p className="text-xs text-muted mt-0.5">Meta Ads · {startDate} → {endDate}</p>
-      </div>
-
       {error && <div className="px-4 py-3 rounded-lg bg-danger-light border border-danger/20 text-danger text-sm">{error}</div>}
 
       <AIFlash

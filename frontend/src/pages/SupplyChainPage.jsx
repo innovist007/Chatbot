@@ -72,20 +72,38 @@ export default function SupplyChainPage({ startDate, endDate, compareMode, onAsk
   if (initialLoading && !overview) {
     return (
       <div className="space-y-4 p-6">
-        <div className="skeleton h-20" />
-        <div className="skeleton h-16" />
+        {/* AI flash skeleton */}
+        <div className="skeleton h-24 rounded-lg" />
+
+        {/* RAG strip */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {Array(4).fill(0).map((_, i) => <div key={i} className="skeleton h-20 rounded-lg" />)}
+        </div>
+
+        {/* Section label + KPI grid */}
+        <div className="skeleton h-9 rounded-lg w-52" />
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
-          {Array(7).fill(0).map((_, i) => <div key={i} className="skeleton h-24" />)}
+          {Array(7).fill(0).map((_, i) => <div key={i} className="skeleton h-24 rounded-lg" />)}
         </div>
+
+        {/* TAT cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          {Array(6).fill(0).map((_, i) => <div key={i} className="skeleton h-20" />)}
+          {Array(6).fill(0).map((_, i) => <div key={i} className="skeleton h-20 rounded-lg" />)}
         </div>
-        <div className="skeleton h-40" />
-        <div className="skeleton h-64" />
-        <div className="skeleton h-64" />
-        <div className="skeleton h-72" />
-        <div className="flex items-center gap-2 text-sm text-text-secondary pt-2">
-          <div className="w-5 h-5 border-[3px] border-accent border-t-transparent rounded-full animate-spin" />
+
+        {/* Pipeline + waterfall */}
+        <div className="skeleton h-9 rounded-lg w-64" />
+        <div className="skeleton h-20 rounded-lg" />
+        <div className="skeleton h-9 rounded-lg w-48" />
+        <div className="skeleton h-48 rounded-lg" />
+
+        {/* Charts */}
+        <div className="skeleton h-9 rounded-lg w-40" />
+        <div className="skeleton h-64 rounded-lg" />
+
+        {/* Spinner */}
+        <div className="flex items-center gap-2 text-sm text-muted pt-1">
+          <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
           <span>Loading supply chain data…</span>
         </div>
       </div>
