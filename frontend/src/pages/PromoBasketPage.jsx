@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { usePromoBasket } from "@/hooks/usePromoBasket";
 import { Card, CardHeader, CardBody, CardTitle } from "@/components/ui/Card";
 import { Segmented } from "@/components/ui/Segmented";
 import { KpiCard } from "@/components/KpiCard";
 import { DataTable } from "@/components/DataTable";
 import { AISummary } from "@/components/AISummary";
-import { api } from "@/lib/api";
 import { fmt } from "@/lib/utils";
 
 function generateKpiInsight(metricName, delta) {
@@ -25,54 +24,11 @@ function generateKpiInsight(metricName, delta) {
 }
 
 export default function PromoBasketPage({ onAskChat, startDate, endDate, compareMode }) {
-  const [offerType, setOfferType] = useState("All offers");
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [aiSummary, setAiSummary] = useState("Generating AI insights...");
-
-  // AI Summary - loads once on mount
-  useEffect(() => {
-    api.promo.aiSummary()
-      .then((res) => setAiSummary(res.summary))
-      .catch((err) => {
-        console.error("AI summary failed:", err);
-        setAiSummary("Unable to generate AI summary at this time.");
-      });
-  }, []);
-
-  // Data fetch
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    const filters = {
-      startDate,
-      endDate,
-      offerType,
-      compareMode,
-    };
-
-    api.promo
-      .overview(filters)
-      .then((res) => {
-        if (!cancelled) {
-          console.log("📊 Promo & Basket Response:", res);
-          setData(res);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          console.error("❌ Promo & Basket Error:", err);
-          setError(err.message);
-          setLoading(false);
-        }
-      });
-
-    return () => { cancelled = true; };
-  }, [startDate, endDate, offerType, compareMode]);
+  const {
+    data, loading, error,
+    aiSummary,
+    offerType, setOfferType,
+  } = usePromoBasket({ startDate, endDate, compareMode });
 
 //   if (error) {
 //     return (

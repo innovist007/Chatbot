@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Card } from "@/components/ui/Card";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { Pill } from "@/components/ui/Pill";
@@ -16,99 +16,20 @@ import { NdrFunnel } from "@/components/supplychain/NdrFunnel";
 import { DeliveryDayChart } from "@/components/supplychain/DeliveryDayChart";
 import { TrendControls } from "@/components/supplychain/TrendControls";
 import { SCTrendChart } from "@/components/supplychain/SCTrendChart";
-import { api } from "@/lib/api";
+import { useSupplyChain } from "@/hooks/useSupplyChain";
 import { fmt, cn } from "@/lib/utils";
 
 export default function SupplyChainPage({ startDate, endDate, compareMode, onAskChat }) {
-
-  // Server data
-  const [overview, setOverview] = useState(null);
-  const [warehouseTable, setWarehouseTable] = useState([]);
-  const [courierTable, setCourierTable] = useState([]);
-  const [paymentTable, setPaymentTable] = useState([]);
-  const [matrix, setMatrix] = useState(null);
-  const [pincodes, setPincodes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [initialLoading, setInitialLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  // AI summary
-  const [aiSummary, setAiSummary] = useState("Generating AI insights…");
-  const [aiDate, setAiDate] = useState(null);
-  const [aiLoading, setAiLoading] = useState(true);
-
-  // Trend chart state
-  const [granularity, setGranularity] = useState("MoM");
-  const [segment, setSegment] = useState("warehouse");
-  const [metric, setMetric] = useState("rto");
-  const [subFilter, setSubFilter] = useState("all");
-  const [subOptions, setSubOptions] = useState({}); // { warehouse: [...], courier: [...], ... }
-  const [trend, setTrend] = useState(null);
-
-  const filters = useMemo(
-    () => ({ startDate, endDate, compareMode }),
-    [startDate, endDate, compareMode]
-  );
-
-  // AI summary — one-shot
-  useEffect(() => {
-    setAiLoading(true);
-    api.supplyChain.aiSummary()
-      .then((r) => { setAiSummary(r.summary); setAiDate(r.date); })
-      .catch(() => setAiSummary("Unable to generate AI summary at this time."))
-      .finally(() => setAiLoading(false));
-  }, []);
-
-  // Segment options — one-shot
-  useEffect(() => {
-    api.supplyChain.segmentOptions()
-      .then((r) => setSubOptions(r || {}))
-      .catch(() => setSubOptions({}));
-  }, []);
-
-  // Bundled overview + tables + matrix + pincodes (single HTTP call)
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    api.supplyChain.overview(filters)
-      .then((d) => {
-        if (cancelled) return;
-        setOverview({
-          overview: d.overview,
-          waterfall: d.waterfall,
-          ndr_funnel: d.ndr_funnel,
-          delivery_day_distribution: d.delivery_day_distribution,
-        });
-        setWarehouseTable(d.warehouse_table || []);
-        setCourierTable(d.courier_table || []);
-        setPaymentTable(d.payment_table || []);
-        setMatrix(d.courier_wh_matrix);
-        setPincodes(d.top_pincodes || []);
-        setLoading(false);
-        setInitialLoading(false);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setError(err.message);
-        setLoading(false);
-        setInitialLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [filters]);
-
-  // Trend — refetch when controls or filters change
-  useEffect(() => {
-    let cancelled = false;
-    api.supplyChain
-      .trend(filters, { segment, metric, granularity, subFilter })
-      .then((t) => { if (!cancelled) setTrend(t); })
-      .catch(() => { if (!cancelled) setTrend(null); });
-    return () => { cancelled = true; };
-  }, [filters, segment, metric, granularity, subFilter]);
-
-  // Reset sub-filter on segment switch
-  useEffect(() => { setSubFilter("all"); }, [segment]);
+  const {
+    overview, warehouseTable, courierTable, paymentTable,
+    matrix, pincodes, trend, subOptions,
+    loading, initialLoading, error,
+    aiSummary, aiDate, aiLoading,
+    granularity, setGranularity,
+    segment,     setSegment,
+    metric,      setMetric,
+    subFilter,   setSubFilter,
+  } = useSupplyChain({ startDate, endDate, compareMode });
 
   const cur = overview?.overview?.current || {};
   const dl = overview?.overview?.deltas || {};

@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useD2CRto } from "@/hooks/useD2CRto";
 import { Card, CardHeader, CardBody, CardTitle } from "@/components/ui/Card";
 import { Segmented } from "@/components/ui/Segmented";
 import { KpiCard } from "@/components/KpiCard";
 import { DataTable } from "@/components/DataTable";
 import { AISummary } from "@/components/AISummary";
-import { api } from "@/lib/api";
 import { fmt } from "@/lib/utils";
 
 function generateKpiInsight(metricName, delta) {
@@ -24,56 +23,12 @@ function generateKpiInsight(metricName, delta) {
 }
 
 export default function D2CRtoPage({ onAskChat, startDate, endDate, compareMode }) {
-  const [payment, setPayment] = useState("All");
-  const [customer, setCustomer] = useState("All");
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [aiSummary, setAiSummary] = useState("Generating AI insights...");
-
-  // AI Summary - loads once on mount
-  useEffect(() => {
-    api.d2cRto.aiSummary()
-      .then((res) => setAiSummary(res.summary))
-      .catch((err) => {
-        console.error("AI summary failed:", err);
-        setAiSummary("Unable to generate AI summary at this time.");
-      });
-  }, []);
-
-  // Data fetch
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    const filters = {
-      startDate,
-      endDate,
-      payment,
-      customer,
-      compareMode,
-    };
-
-    api.d2cRto
-      .overview(filters)
-      .then((res) => {
-        if (!cancelled) {
-          console.log("📊 D2C RTO Response:", res);
-          setData(res);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          console.error("❌ D2C RTO Error:", err);
-          setError(err.message);
-          setLoading(false);
-        }
-      });
-
-    return () => { cancelled = true; };
-  }, [startDate, endDate, payment, customer, compareMode]);
+  const {
+    data, loading, error,
+    aiSummary,
+    payment,  setPayment,
+    customer, setCustomer,
+  } = useD2CRto({ startDate, endDate, compareMode });
 
 //   if (error) {
 //     return (

@@ -1,24 +1,24 @@
-"""D2C section API endpoints.
-
-Handles all D2C tabs:
-- /d2c/overview - Overview tab
-- /d2c/web-cr - Web CR tab (delegates to web_cr_service)
-- /d2c/app-cr - App CR tab (future)
-- /d2c/rto - RTO tab (future)
-- etc.
-"""
+"""D2C section API endpoints."""
+import asyncio
 from datetime import date
+from functools import lru_cache
+
 from fastapi import APIRouter, Depends, Query
 
-from app.config import get_settings, Settings
-from app.services.d2c_service import D2CService, D2CFilters
+from app.config import get_settings
 from app.routers.auth import get_current_user
+from app.services.d2c_service import D2CFilters, D2CService
 
-router = APIRouter(prefix="/d2c", tags=["d2c"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/d2c",
+    tags=["d2c"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
-def get_d2c_service(settings: Settings = Depends(get_settings)) -> D2CService:
-    return D2CService(settings)
+@lru_cache
+def _service() -> D2CService:
+    return D2CService(get_settings())
 
 
 @router.get("/overview")
@@ -28,9 +28,8 @@ async def get_d2c_overview(
     brands: list[str] | None = Query(None),
     platforms: list[str] | None = Query(None),
     customers: list[str] | None = Query(None),
-    svc: D2CService = Depends(get_d2c_service),
 ):
-    """Get D2C Overview tab metrics with caching."""
+    svc = _service()
     f = D2CFilters(
         start_date=start_date,
         end_date=end_date,
@@ -38,22 +37,18 @@ async def get_d2c_overview(
         platforms=platforms,
         customers=customers,
     )
-    
+    overview, by_platform, revenue_trend = await asyncio.gather(
+        asyncio.to_thread(svc.overview, f),
+        asyncio.to_thread(svc.by_platform, f),
+        asyncio.to_thread(svc.revenue_trend, f),
+    )
     return {
-        "overview": svc.overview(f),
-        "by_platform": svc.by_platform(f),
-        "revenue_trend": svc.revenue_trend(f),
+        "overview":      overview,
+        "by_platform":   by_platform,
+        "revenue_trend": revenue_trend,
     }
 
 
 @router.get("/filter-options")
-async def get_filter_options(svc: D2CService = Depends(get_d2c_service)):
-    """Get available filter values for D2C section."""
-    return svc.filter_options()
-
-
-# Future endpoints for other D2C tabs:
-# @router.get("/app-cr")
-# @router.get("/rto")
-# @router.get("/repeat")
-# @router.get("/promo")
+async def get_filter_options():
+    return await asyncio.to_thread(_service().filter_options)

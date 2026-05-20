@@ -1,14 +1,14 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AISummary } from "@/components/AISummary";
 import { Segmented } from "@/components/ui/Segmented";
 import { Card } from "@/components/ui/Card";
-import { api } from "@/lib/api";
 import { WebCrTabs, WEB_CR_TABS } from "@/components/webcr/WebCrTabs";
 import { OverviewTab } from "@/components/webcr/OverviewTab";
 import { FunnelTab } from "@/components/webcr/FunnelTab";
 import { ChannelsTab } from "@/components/webcr/ChannelsTab";
 import { PagesProductsTab } from "@/components/webcr/PagesProductsTab";
 import { WebCrKpiHeader } from "@/components/webcr/WebCrKpiHeader";
+import { useWebCR } from "@/hooks/useWebCR";
 
 function PlaceholderTab({ tabKey }) {
   const meta = WEB_CR_TABS.find((t) => t.key === tabKey);
@@ -30,102 +30,14 @@ function PlaceholderTab({ tabKey }) {
 
 export default function WebCrPage({ onAskChat, startDate, endDate, compareMode }) {
   const [tab, setTab] = useState("overview");
-  const [device, setDevice] = useState(null);
-  const [visitor, setVisitor] = useState(null);
-  const [channel, setChannel] = useState(null);
-  const [campaign, setCampaign] = useState(null);
-  const [contentGroup, setContentGroup] = useState(null);
-  const [landingPage, setLandingPage] = useState(null);
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [aiSummary, setAiSummary] = useState("Generating AI insights...");
-  const [filterOpts, setFilterOpts] = useState({
-    channels: [],
-    devices: [],
-    campaigns: [],
-    content_groups: [],
-  });
 
-  useEffect(() => {
-    api.webCr
-      .aiSummary()
-      .then((res) => setAiSummary(res.summary))
-      .catch((err) => {
-        console.error("AI summary failed:", err);
-        setAiSummary("Unable to generate AI summary at this time.");
-      });
-  }, []);
-
-  useEffect(() => {
-    api.webCr
-      .filterOptions()
-      .then((opts) => setFilterOpts({
-        channels: opts.channels || [],
-        devices: opts.devices || [],
-        campaigns: opts.campaigns || [],
-        content_groups: opts.content_groups || [],
-      }))
-      .catch((err) => console.error("Filter options failed:", err));
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    setError(null);
-
-    if (!data) {
-      setInitialLoading(true);
-    } else {
-      setLoading(true);
-    }
-
-    api.webCr
-      .overview({
-        startDate,
-        endDate,
-        devices: device ? [device] : null,
-        channels: channel ? [channel] : null,
-        sessionTypes: visitor ? [visitor] : null,
-        campaigns: campaign ? [campaign] : null,
-        contentGroups: contentGroup ? [contentGroup] : null,
-        landingPages: landingPage ? [landingPage] : null,
-      })
-      .then((d) => {
-        if (!cancelled) setData(d);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err.message);
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-          setInitialLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [startDate, endDate, device, visitor, channel, campaign, contentGroup, landingPage]);
-
-  const filters = { device, visitor, channel, campaign, contentGroup, landingPage };
-  const setters = {
-    setDevice,
-    setVisitor,
-    setChannel,
-    setCampaign,
-    setContentGroup,
-    setLandingPage,
-    resetAll: () => {
-      setDevice(null);
-      setVisitor(null);
-      setChannel(null);
-      setCampaign(null);
-      setContentGroup(null);
-      setLandingPage(null);
-    },
-  };
+  const {
+    data, loading, initialLoading, error,
+    aiSummary, filterOpts,
+    filters, setters,
+    device, setDevice,
+    visitor, setVisitor,
+  } = useWebCR({ startDate, endDate });
 
   return (
     <div className="px-6 py-6 max-w-[1600px] mx-auto">

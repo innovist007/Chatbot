@@ -226,6 +226,11 @@ acquisition: {
   filterOptions() {
     return cachedGet("/acquisition/filter-options", "filter-opts:acquisition", 4 * 60 * 60 * 1000);
   },
+  aiSummary(endDate) {
+    const key = `ai-summary:acquisition:${endDate || "latest"}`;
+    const url = endDate ? `/acquisition/ai-summary?end_date=${endDate}` : "/acquisition/ai-summary";
+    return cachedGet(url, key);
+  },
 },
 
 supplyChain: {

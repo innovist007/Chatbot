@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useAppCR } from "@/hooks/useAppCR";
 import { Card, CardHeader, CardBody, CardTitle } from "@/components/ui/Card";
 import { Segmented } from "@/components/ui/Segmented";
 import { Pill } from "@/components/ui/Pill";
@@ -6,7 +6,6 @@ import { KpiCard } from "@/components/KpiCard";
 import { Funnel } from "@/components/Funnel";
 import { DataTable } from "@/components/DataTable";
 import { AISummary } from "@/components/AISummary";
-import { api } from "@/lib/api";
 import { fmt } from "@/lib/utils";
 
 function generateKpiInsight(metricName, delta) {
@@ -28,62 +27,12 @@ function generateKpiInsight(metricName, delta) {
 }
 
 export default function AppCRPage({ onAskChat, startDate, endDate, compareMode }) {
-  const [platform, setPlatform] = useState("All");
-  const [user, setUser] = useState("All");
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [aiSummary, setAiSummary] = useState("Generating AI insights...");
-
-useEffect(() => {
-  // Load AI summary ONCE on mount - it's based on latest data day, not user filters
-  api.appCr.aiSummary()  // No params!
-    .then((res) => setAiSummary(res.summary))
-    .catch((err) => {
-      console.error("AI summary failed:", err);
-      setAiSummary("Unable to generate AI summary at this time.");
-    });
-}, []);  // ← Empty deps - only runs once
-
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    const filters = {
-      startDate,
-      endDate,
-      platforms: platform === "All" ? null : [platform],
-      users: user === "All" ? null : [user],
-      compareMode,
-    };
-
-    api.appCr
-      .overview(filters)
-      .then((res) => {
-        if (!cancelled) {
-          console.log("📊 App CR API Response:", res);
-          console.log("📊 Install Attribution:", res.install_attribution);
-          console.log("📊 By Platform:", res.by_platform);
-          console.log("📊 Funnel:", res.funnel);
-          console.log("📊 Push Performance:", res.push_performance);
-          setData(res);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          console.error("❌ App CR API Error:", err);
-          setError(err.message);
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [startDate, endDate, platform, user, compareMode]);
+  const {
+    data, loading, error,
+    aiSummary,
+    platform, setPlatform,
+    user,     setUser,
+  } = useAppCR({ startDate, endDate, compareMode });
 
   if (loading) {
     return (

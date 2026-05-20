@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useAcquisition } from "@/hooks/useAcquisition";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -11,6 +12,7 @@ import {
 } from "recharts";
 import { Card, CardBody } from "@/components/ui/Card";
 import { SectionHeader } from "@/components/shared/SectionHeader";
+import { AIFlash } from "@/components/shared/AIFlash";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { DataTable } from "@/components/DataTable";
 import { KpiCard } from "@/components/KpiCard";
@@ -555,26 +557,10 @@ function TableSection({ startDate, endDate, filterOpts, compareMode: propCompare
 
 // ------------------------------------------------------------------ main page
 export default function AcquisitionPage({ startDate, endDate, compareMode }) {
-  const [data, setData]             = useState(null);
-  const [loading, setLoading]       = useState(false);
-  const [initialLoading, setInit]   = useState(true);
-  const [error, setError]           = useState(null);
-  const [filterOpts, setFilterOpts] = useState({ campaigns: [], stages: [], creative_types: [], brands: [], languages: [], ad_names: [] });
-
-  useEffect(() => {
-    api.acquisition.filterOptions().then(setFilterOpts).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    setError(null);
-    if (!data) setInit(true); else setLoading(true);
-    api.acquisition.overview({ startDate, endDate })
-      .then((d) => { if (!cancelled) setData(d); })
-      .catch((err) => { if (!cancelled) setError(err.message); })
-      .finally(() => { if (!cancelled) { setLoading(false); setInit(false); } });
-    return () => { cancelled = true; };
-  }, [startDate, endDate]);
+  const {
+    data, loading, initialLoading, error, filterOpts,
+    aiSummary, aiDate, aiLoading,
+  } = useAcquisition({ startDate, endDate });
 
   return (
     <div className="px-6 py-6 max-w-[1600px] mx-auto space-y-6">
@@ -584,6 +570,13 @@ export default function AcquisitionPage({ startDate, endDate, compareMode }) {
       </div>
 
       {error && <div className="px-4 py-3 rounded-lg bg-danger-light border border-danger/20 text-danger text-sm">{error}</div>}
+
+      <AIFlash
+        title="AI daily flash · Acquisition"
+        summary={aiSummary}
+        date={aiDate}
+        loading={aiLoading}
+      />
 
       {/* KPI strip */}
       <KpiStrip kpis={data?.kpis} loading={loading} initialLoading={initialLoading} compareMode={compareMode} />

@@ -10,7 +10,9 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.config import Settings, get_settings
+from app.deps import get_agent_service
 from app.routers.auth import get_current_user
+from app.services.agent_service import AgentService
 from app.services.meta_ads_service import MetaAdsFilters, MetaAdsService
 
 logger = logging.getLogger(__name__)
@@ -128,6 +130,49 @@ async def table(
     except Exception as exc:
         logger.exception("acquisition table failed")
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+
+# ------------------------------------------------------------------ AI summary
+@router.get("/ai-summary", summary="AI summary for the selected period. Cached 24h.")
+async def ai_summary(
+    end_date: date | None = Query(None),
+    agent: AgentService = Depends(get_agent_service),
+) -> dict[str, str]:
+    svc = _service()
+    as_of = (end_date or date.today()).isoformat()
+    cache_key = f"acquisition_ai_summary:{as_of}"
+
+    cached = svc._get_cache(cache_key)
+    if cached:
+        return cached
+
+    prompt = f"""Generate a brief 3-4 sentence executive summary of Meta Ads acquisition performance for the period ending {as_of}.
+
+CRITICAL: Use ONLY data from this specific table:
+`innovist-master-data.shopify.v_meta_spends_table`
+
+Focus on:
+- Total spend and ROAS
+- CPM and CTR trends
+- Top-performing campaign or creative
+- Any fatigued or underperforming ads (high frequency, declining CTR)
+
+IMPORTANT RULES:
+- 3-4 sentences plain text only
+- No charts, no SQL, no tables, no bullet points
+- Mention specific numbers and percentages"""
+
+    try:
+        result = await asyncio.to_thread(agent.ask, prompt)
+        response = {
+            "summary": result.get("answer", "Unable to generate summary"),
+            "date":    as_of,
+        }
+        svc._set_cache(cache_key, response, ttl=86400)
+        return response
+    except Exception as exc:
+        logger.exception("Acquisition AI summary failed")
+        return {"summary": f"Could not generate AI summary: {exc}", "date": as_of}
 
 
 # ------------------------------------------------------------------ Filter options

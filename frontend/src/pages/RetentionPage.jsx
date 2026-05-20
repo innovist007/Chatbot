@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useRetention } from "@/hooks/useRetention";
 import { Card, CardHeader, CardBody, CardTitle } from "@/components/ui/Card";
 import { Segmented } from "@/components/ui/Segmented";
 import { KpiCard } from "@/components/KpiCard";
 import { DataTable } from "@/components/DataTable";
 import { AISummary } from "@/components/AISummary";
-import { api } from "@/lib/api";
 import { fmt, cn } from "@/lib/utils";
 
 const RETENTION_WINDOWS = ["7d", "15d", "30d", "60d", "90d", "180d"];
@@ -90,56 +89,12 @@ function DaysToOrderChart({ data }) {
 }
 
 export default function RetentionPage({ onAskChat, startDate, endDate, compareMode }) {
-  const [brand, setBrand] = useState("All");
-  const [retentionWindow, setRetentionWindow] = useState("30d");
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [aiSummary, setAiSummary] = useState("Generating AI insights...");
-
-  // AI Summary - loads once on mount
-  useEffect(() => {
-    api.retention.aiSummary()
-      .then((res) => setAiSummary(res.summary))
-      .catch((err) => {
-        console.error("AI summary failed:", err);
-        setAiSummary("Unable to generate AI summary at this time.");
-      });
-  }, []);
-
-  // Data fetch
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    const filters = {
-      startDate,
-      endDate,
-      brand,
-      retentionWindow,
-      compareMode,
-    };
-
-    api.retention
-      .overview(filters)
-      .then((res) => {
-        if (!cancelled) {
-          console.log("📊 Retention Response:", res);
-          setData(res);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          console.error("❌ Retention Error:", err);
-          setError(err.message);
-          setLoading(false);
-        }
-      });
-
-    return () => { cancelled = true; };
-  }, [startDate, endDate, brand, retentionWindow, compareMode]);
+  const {
+    data, loading, error,
+    aiSummary,
+    brand,           setBrand,
+    retentionWindow, setRetentionWindow,
+  } = useRetention({ startDate, endDate, compareMode });
 
   // if (error) {
   //   return (
