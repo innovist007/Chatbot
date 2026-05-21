@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useAcquisition } from "@/hooks/useAcquisition";
+import { AcquisitionTabs, ACQUISITION_TABS } from "@/components/acquisition/AcquisitionTabs";
+import { PartnershipTab } from "@/components/acquisition/PartnershipTab";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -555,62 +557,98 @@ function TableSection({ startDate, endDate, filterOpts, compareMode: propCompare
   );
 }
 
+// ------------------------------------------------------------------ placeholder tab
+function PlaceholderTab({ tabKey }) {
+  const meta = ACQUISITION_TABS.find((t) => t.key === tabKey);
+  return (
+    <Card className="p-10 flex flex-col items-center justify-center text-center">
+      <div className="w-3 h-3 rounded-sm mb-3" style={{ background: meta?.color }} />
+      <div className="text-sm font-semibold text-text mb-1">{meta?.label}</div>
+      <div className="text-xs text-muted max-w-md">
+        Coming soon. This tab will surface {meta?.label?.toLowerCase()} metrics in a future update.
+      </div>
+    </Card>
+  );
+}
+
 // ------------------------------------------------------------------ main page
 export default function AcquisitionPage({ startDate, endDate, compareMode }) {
+  const [tab, setTab] = useState("meta");
+
   const {
     data, loading, initialLoading, error, filterOpts,
     aiSummary, aiDate, aiLoading,
   } = useAcquisition({ startDate, endDate });
 
   return (
-    <div className="px-6 py-6 max-w-[1600px] mx-auto space-y-6">
-      {error && <div className="px-4 py-3 rounded-lg bg-danger-light border border-danger/20 text-danger text-sm">{error}</div>}
+    <div className="px-6 py-6 max-w-[1600px] mx-auto">
+      <AcquisitionTabs active={tab} onChange={setTab} />
 
-      <AIFlash
-        title="AI daily flash · Acquisition"
-        summary={aiSummary}
-        date={aiDate}
-        loading={aiLoading}
-      />
+      <div className="mt-6">
+        {/* ---- META ADS ---- */}
+        {tab === "meta" && (
+          <div className="space-y-6">
+            {error && <div className="px-4 py-3 rounded-lg bg-danger-light border border-danger/20 text-danger text-sm">{error}</div>}
 
-      {/* KPI strip */}
-      <KpiStrip kpis={data?.kpis} loading={loading} initialLoading={initialLoading} compareMode={compareMode} />
+            <AIFlash
+              title="AI daily flash · Meta Ads"
+              summary={aiSummary}
+              date={aiDate}
+              loading={aiLoading}
+            />
 
-      {/* Funnel CVR breakdown */}
-      <div className="space-y-2">
-        <SectionHeader
-          title="Funnel CVR breakdown — where are we losing customers?"
-          subtitle="Impressions → Order · Meta · period"
-          tone="teal"
-        />
-        <Card>
-          <CardBody>
-            <FunnelCVR funnel={data?.funnel_cvr} loading={loading} initialLoading={initialLoading} />
-          </CardBody>
-        </Card>
-      </div>
+            <KpiStrip kpis={data?.kpis} loading={loading} initialLoading={initialLoading} compareMode={compareMode} />
 
-      {/* Fatigued ads */}
-      <div className="space-y-2">
-        <SectionHeader
-          title="Fatigued ads — replace this week"
-          subtitle={`${(data?.fatigued_ads || []).length} ads need action`}
-          tone="red"
-        />
-        <Card>
-          <CardBody className="!p-0 px-0">
-            <div className="px-4 py-3">
-              <FatiguedAds rows={data?.fatigued_ads} loading={loading} initialLoading={initialLoading} />
+            <div className="space-y-2">
+              <SectionHeader
+                title="Funnel CVR breakdown — where are we losing customers?"
+                subtitle="Impressions → Order · Meta · period"
+                tone="teal"
+              />
+              <Card>
+                <CardBody>
+                  <FunnelCVR funnel={data?.funnel_cvr} loading={loading} initialLoading={initialLoading} />
+                </CardBody>
+              </Card>
             </div>
-          </CardBody>
-        </Card>
+
+            <div className="space-y-2">
+              <SectionHeader
+                title="Fatigued ads — replace this week"
+                subtitle={`${(data?.fatigued_ads || []).length} ads need action`}
+                tone="red"
+              />
+              <Card>
+                <CardBody className="!p-0 px-0">
+                  <div className="px-4 py-3">
+                    <FatiguedAds rows={data?.fatigued_ads} loading={loading} initialLoading={initialLoading} />
+                  </div>
+                </CardBody>
+              </Card>
+            </div>
+
+            <TrendSection startDate={startDate} endDate={endDate} filterOpts={filterOpts} />
+            <TableSection startDate={startDate} endDate={endDate} filterOpts={filterOpts} compareMode={compareMode} />
+          </div>
+        )}
+
+        {/* ---- PARTNERSHIPS ---- */}
+        {tab === "partnership" && (
+          <PartnershipTab
+            startDate={startDate}
+            endDate={endDate}
+            compareMode={compareMode}
+            aiSummary={aiSummary}
+            aiDate={aiDate}
+            aiLoading={aiLoading}
+          />
+        )}
+
+        {/* ---- PLACEHOLDERS ---- */}
+        {tab !== "meta" && tab !== "partnership" && (
+          <PlaceholderTab tabKey={tab} />
+        )}
       </div>
-
-      {/* Trend — self-contained */}
-      <TrendSection startDate={startDate} endDate={endDate} filterOpts={filterOpts} />
-
-      {/* Performance table — self-contained */}
-      <TableSection startDate={startDate} endDate={endDate} filterOpts={filterOpts} compareMode={compareMode} />
     </div>
   );
 }

@@ -231,6 +231,10 @@ acquisition: {
     const url = endDate ? `/acquisition/ai-summary?end_date=${endDate}` : "/acquisition/ai-summary";
     return cachedGet(url, key);
   },
+  partnership({ startDate, endDate, compareMode = "MoM" } = {}) {
+    const params = new URLSearchParams({ start_date: startDate, end_date: endDate, compare_mode: compareMode });
+    return request(`/acquisition/partnership?${params}`);
+  },
 },
 
 supplyChain: {

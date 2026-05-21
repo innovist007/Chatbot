@@ -17,7 +17,7 @@ export function Funnel({ steps, dropReasons }) {
         return (
           <div key={s.step}>
             {/* Main step row */}
-            <div className="grid grid-cols-[180px_1fr_100px_100px] gap-4 py-3 items-center border-b border-border last:border-b-0">
+            <div className="grid grid-cols-[110px_1fr_56px_56px] sm:grid-cols-[180px_1fr_100px_100px] gap-2 sm:gap-4 py-3 items-center border-b border-border last:border-b-0">
               <div className="text-sm font-medium text-text">{s.step}</div>
 
               <div className="relative h-8 bg-elevated rounded overflow-hidden">
@@ -66,7 +66,7 @@ export function Funnel({ steps, dropReasons }) {
 
             {/* Drop reasons row - ONLY if data provided */}
             {!isFirst && hasDropReason && s.drop > 0.1 && (
-              <div className="grid grid-cols-[180px_1fr] gap-4 py-2 bg-elevated/30 border-b border-border/50">
+              <div className="grid grid-cols-[110px_1fr] sm:grid-cols-[180px_1fr] gap-2 sm:gap-4 py-2 bg-elevated/30 border-b border-border/50">
                 <div className="text-xs uppercase tracking-wider font-semibold text-muted">
                   Drop reasons
                 </div>

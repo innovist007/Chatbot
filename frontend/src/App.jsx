@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { TwoTierNav } from "@/components/TwoTierNav";
 import { ChatPanel } from "@/components/ChatPanel";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -57,7 +57,14 @@ function AuthenticatedApp() {
   const [startDate, setStartDate] = useState(daysAgoISO(30));
   const [endDate, setEndDate] = useState(todayISO());
   const [compareMode, setCompareMode] = useState("MoM");
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const { user, logout } = useAuth();
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   function askChat(question) {
     setChatQuery(question);
@@ -92,7 +99,7 @@ function AuthenticatedApp() {
       />
       <main
         className="flex-1 transition-[padding-right] duration-300"
-        style={{ paddingRight: chatOpen ? chatWidth : 0 }}
+        style={{ paddingRight: chatOpen && !isMobile ? chatWidth : 0 }}
       >
         <Routes>
           <Route path="/" element={<Navigate to="/d2c-overview" replace />} />

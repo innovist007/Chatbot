@@ -13,28 +13,32 @@ export const WEB_CR_TABS = [
 export function WebCrTabs({ active, onChange }) {
   return (
     <div className="sticky top-0 z-30 -mx-6 px-6 bg-bg/95 backdrop-blur border-b border-border">
-      <div className="flex items-center gap-1 overflow-x-auto py-2">
-        {WEB_CR_TABS.map((t) => {
-          const isActive = active === t.key;
-          return (
-            <button
-              key={t.key}
-              onClick={() => onChange(t.key)}
-              className={cn(
-                "flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-colors",
-                isActive
-                  ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
-                  : "text-muted hover:text-text hover:bg-elevated"
-              )}
-            >
-              <span
-                className="w-2.5 h-2.5 rounded-sm"
-                style={{ background: t.color }}
-              />
-              {t.label}
-            </button>
-          );
-        })}
+      <div className="relative">
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide py-2">
+          {WEB_CR_TABS.map((t) => {
+            const isActive = active === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => onChange(t.key)}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-colors",
+                  isActive
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-muted hover:text-text hover:bg-elevated"
+                )}
+              >
+                <span
+                  className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
+                  style={{ background: t.color }}
+                />
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+        {/* Right-edge fade — hints that more tabs can be scrolled into view */}
+        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-10 bg-gradient-to-l from-bg/95 to-transparent" />
       </div>
     </div>
   );

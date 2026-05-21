@@ -1,4 +1,4 @@
-import { X, Send, Sparkles } from "lucide-react";
+import { X, Send, Sparkles, Maximize2, Minimize2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { streamChat, getAgentInfo } from "@/lib/chatApi";
@@ -20,6 +20,7 @@ export function ChatPanel({ open, onClose, deepLinkQuery, width = 500, onWidthCh
   const [streaming, setStreaming] = useState(false);
   const [agentName, setAgentName] = useState("");
   const [isDragging, setIsDragging] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -35,8 +36,10 @@ export function ChatPanel({ open, onClose, deepLinkQuery, width = 500, onWidthCh
 
   // Auto-focus input when panel opens
   useEffect(() => {
-    if (open && inputRef.current) {
+    if (open) {
       setTimeout(() => inputRef.current?.focus(), 200);
+    } else {
+      setIsFullscreen(false);
     }
   }, [open]);
 
@@ -191,11 +194,11 @@ export function ChatPanel({ open, onClose, deepLinkQuery, width = 500, onWidthCh
 
   return (
     <>
-      {/* Resize Handle */}
-      {open && (
+      {/* Resize Handle — hidden on mobile and when fullscreen */}
+      {open && !isFullscreen && (
         <div
           className={cn(
-            "fixed top-0 bottom-0 w-1 z-[51] cursor-col-resize group",
+            "fixed top-0 bottom-0 w-1 z-[51] cursor-col-resize group hidden md:block",
             "bg-border hover:bg-accent transition-colors",
             isDragging && "bg-accent"
           )}
@@ -228,7 +231,7 @@ export function ChatPanel({ open, onClose, deepLinkQuery, width = 500, onWidthCh
           isDragging && "transition-none",
           open ? "translate-x-0" : "translate-x-full"
         )}
-        style={{ width }}
+        style={{ width: isFullscreen ? "100vw" : width }}
       >
         {/* Header */}
         <header className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
@@ -245,6 +248,14 @@ export function ChatPanel({ open, onClose, deepLinkQuery, width = 500, onWidthCh
                 New chat
               </button>
             )}
+            {/* Fullscreen toggle — hidden on mobile (already fullscreen) */}
+            <button
+              onClick={() => setIsFullscreen((f) => !f)}
+              className="hidden md:flex w-7 h-7 rounded border border-border text-muted hover:text-text hover:bg-surface-2 items-center justify-center transition-colors"
+              title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+            >
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
             <button
               onClick={onClose}
               className="w-7 h-7 rounded border border-border text-muted hover:text-text hover:bg-surface-2 flex items-center justify-center transition-colors"

@@ -62,29 +62,32 @@ export function TwoTierNav({
 
         {/* ── Second tier ── */}
         <div className="border-b border-border bg-surface/80">
-          <div className="max-w-[1600px] mx-auto px-4 h-11 flex items-center justify-between">
-            {/* Page tabs */}
-            <nav className="flex items-center gap-0.5">
-              {secondNav.map(({ to, label }) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  className={({ isActive }) =>
-                    cn(
-                      "px-3 py-1.5 text-[12.5px] font-medium rounded-md transition-colors whitespace-nowrap",
-                      isActive
-                        ? "bg-accent text-white shadow-sm"
-                        : "text-muted hover:text-text hover:bg-elevated"
-                    )
-                  }
-                >
-                  {label}
-                </NavLink>
-              ))}
-            </nav>
+          <div className="max-w-[1600px] mx-auto px-4 h-11 flex items-center justify-between gap-2">
+            {/* Page tabs — scrollable on mobile, fade hint on right */}
+            <div className="relative flex-1 min-w-0">
+              <nav className="flex items-center gap-0.5 overflow-x-auto scrollbar-hide">
+                {secondNav.map(({ to, label }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    className={({ isActive }) =>
+                      cn(
+                        "px-3 py-1.5 text-[12.5px] font-medium rounded-md transition-colors whitespace-nowrap flex-shrink-0",
+                        isActive
+                          ? "bg-accent text-white shadow-sm"
+                          : "text-muted hover:text-text hover:bg-elevated"
+                      )
+                    }
+                  >
+                    {label}
+                  </NavLink>
+                ))}
+              </nav>
+              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-surface to-transparent" />
+            </div>
 
-            {/* Controls */}
-            <div className="flex items-center gap-2.5">
+            {/* Full controls — md+ only */}
+            <div className="hidden md:flex items-center gap-2.5 flex-shrink-0">
               {/* Date range */}
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border text-xs bg-elevated/50">
                 <Calendar className="w-3.5 h-3.5 text-muted flex-shrink-0" />
@@ -125,7 +128,7 @@ export function TwoTierNav({
 
               <div className="w-px h-5 bg-border" />
 
-              {/* Ask bot */}
+              {/* Ask bot — full label */}
               <button
                 onClick={onAskBot}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-md transition-colors"
@@ -151,6 +154,18 @@ export function TwoTierNav({
                   Admin
                 </NavLink>
               )}
+            </div>
+
+            {/* Mobile-only controls */}
+            <div className="flex md:hidden items-center gap-2 flex-shrink-0">
+              {/* Ask bot — icon only */}
+              <button
+                onClick={onAskBot}
+                className="flex items-center justify-center w-8 h-8 bg-accent hover:bg-accent-hover text-white rounded-md transition-colors"
+                aria-label="Ask bot"
+              >
+                <MessageSquare className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>

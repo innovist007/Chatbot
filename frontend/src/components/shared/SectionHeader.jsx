@@ -78,8 +78,9 @@ export function SectionHeader({ title, subtitle, tone = "gray", actions, classNa
         </span>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Subtitle hidden on mobile so the title has room to breathe */}
         {subtitle && (
-          <span className={cn("text-[11px] font-medium opacity-80", t.text)}>
+          <span className={cn("hidden sm:inline text-[11px] font-medium opacity-80", t.text)}>
             {subtitle}
           </span>
         )}

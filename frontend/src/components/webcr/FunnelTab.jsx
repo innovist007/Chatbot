@@ -271,10 +271,16 @@ function ChannelFunnelChart({ rows, activeChannel }) {
   const opacityFor = (entry) => (entry?._dim ? 0.25 : 1);
 
   return (
-    <ResponsiveContainer width="100%" height={260}>
-      <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 55 }}>
         <CartesianGrid stroke="#e5e5e5" vertical={false} />
-        <XAxis dataKey="channel" tick={{ fontSize: 10, fill: "#737373" }} stroke="#d4d4d4" tickLine={false} interval={0} />
+        <XAxis
+          dataKey="channel"
+          tick={{ fontSize: 10, fill: "#737373", angle: -40, textAnchor: "end", dy: 6 }}
+          stroke="#d4d4d4"
+          tickLine={false}
+          interval={0}
+        />
         <YAxis tick={{ fontSize: 10, fill: "#737373" }} tickFormatter={(v) => v + "%"} stroke="transparent" tickLine={false} axisLine={false} width={42} />
         <Tooltip
           content={({ active, payload, label }) => {
@@ -448,40 +454,41 @@ function HourlyHeatmap({ rows }) {
   };
 
   return (
-    <div className="w-full">
-      <table className="w-full table-fixed text-[11px] border-collapse">
-        <colgroup>
-          <col style={{ width: "56px" }} />
-          {hours.map((h) => <col key={h} />)}
-        </colgroup>
-        <thead>
-          <tr>
-            <th className="px-2 py-2 text-left font-semibold text-muted">Day ↓ / Hr →</th>
-            {hours.map((h) => (
-              <th key={h} className="py-2 text-center font-semibold text-muted">
-                {h === 0 ? "12a" : h < 12 ? `${h}a` : h === 12 ? "12p" : `${h - 12}p`}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {dowOrder.map((d) => (
-            <tr key={d}>
-              <td className="px-2 py-2 text-left font-semibold bg-elevated border border-border">{labelMap[d]}</td>
-              {hours.map((h) => {
-                const v = matrix[d]?.[h];
-                return (
-                  <td key={h} className="py-2 text-center border border-white" style={{ background: toBg(v) }}>
-                    <span className="font-semibold tnum tabular-nums" style={{ color: toFg(v) }}>
-                      {v == null ? "—" : (v * 100).toFixed(1)}
-                    </span>
-                  </td>
-                );
-              })}
+    <div className="relative">
+      <div className="overflow-x-auto">
+        {/* min-w-max lets each of the 24 hour-columns keep natural width — no squashing */}
+        <table className="min-w-max text-[11px] border-collapse">
+          <thead>
+            <tr>
+              <th className="px-3 py-2 text-left font-semibold text-muted whitespace-nowrap w-14">Day ↓ / Hr →</th>
+              {hours.map((h) => (
+                <th key={h} className="px-1 py-2 text-center font-semibold text-muted whitespace-nowrap min-w-[32px]">
+                  {h === 0 ? "12a" : h < 12 ? `${h}a` : h === 12 ? "12p" : `${h - 12}p`}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {dowOrder.map((d) => (
+              <tr key={d}>
+                <td className="px-3 py-2 text-left font-semibold bg-elevated border border-border whitespace-nowrap">{labelMap[d]}</td>
+                {hours.map((h) => {
+                  const v = matrix[d]?.[h];
+                  return (
+                    <td key={h} className="p-0.5 border border-white min-w-[32px]" style={{ background: toBg(v) }}>
+                      <span className="flex items-center justify-center text-[10px] font-semibold tnum h-8 whitespace-nowrap" style={{ color: toFg(v) }}>
+                        {v == null ? "—" : (v * 100).toFixed(1)}
+                      </span>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {/* Right-edge fade hints more columns can be scrolled */}
+      <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-10 bg-gradient-to-l from-bg to-transparent" />
     </div>
   );
 }
@@ -492,16 +499,17 @@ function PageMicroFunnelTable({ rows }) {
   if (!filtered.length) return <div className="py-8 text-center text-muted text-sm">No matching pages</div>;
 
   return (
-    <div className="overflow-hidden border border-border rounded-lg">
-      <table className="w-full text-xs">
+    <div className="relative">
+      <div className="overflow-x-auto rounded-lg border border-border">
+      <table className="min-w-[600px] w-full text-xs">
         <thead className="bg-elevated">
           <tr>
             <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-muted">Landing page</th>
-            <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-muted">Sessions</th>
-            <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-muted">PDP views</th>
-            <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-muted">Add to cart</th>
-            <th className="px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-muted">PDP → ATC bar</th>
-            <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-muted">ATC rate</th>
+            <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-muted whitespace-nowrap">Sessions</th>
+            <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-muted whitespace-nowrap">PDP views</th>
+            <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-muted whitespace-nowrap">Add to cart</th>
+            <th className="px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-muted whitespace-nowrap">PDP → ATC bar</th>
+            <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-muted whitespace-nowrap">ATC rate</th>
           </tr>
         </thead>
         <tbody>
@@ -536,6 +544,9 @@ function PageMicroFunnelTable({ rows }) {
           })}
         </tbody>
       </table>
+      </div>
+      {/* Right-edge fade hints more columns exist */}
+      <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-10 bg-gradient-to-l from-bg to-transparent rounded-r-lg" />
     </div>
   );
 }
