@@ -1,4 +1,4 @@
-"""Acquisition (Meta Ads) dashboard endpoints."""
+"""Acquisition dashboard endpoints — Meta Ads + Partnerships."""
 from __future__ import annotations
 
 import asyncio
@@ -14,6 +14,7 @@ from app.deps import get_agent_service
 from app.routers.auth import get_current_user
 from app.services.agent_service import AgentService
 from app.services.meta_ads_service import MetaAdsFilters, MetaAdsService
+from app.services.partnership_service import PartnershipFilters, PartnershipService
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,11 @@ router = APIRouter(
 @lru_cache
 def _service() -> MetaAdsService:
     return MetaAdsService(get_settings())
+
+
+@lru_cache
+def _partnership_service() -> PartnershipService:
+    return PartnershipService(get_settings())
 
 
 def _parse_filters(
@@ -182,4 +188,48 @@ async def filter_options() -> dict[str, list[str]]:
         return await asyncio.to_thread(_service().filter_options)
     except Exception as exc:
         logger.exception("acquisition filter_options failed")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+
+# ==============================================================================
+# PARTNERSHIPS TAB
+# ==============================================================================
+
+def _parse_partnership_filters(
+    start_date:   date | None,
+    end_date:     date | None,
+    sources:      list[str] | None,
+    compare_mode: str = "MoM",
+) -> PartnershipFilters:
+    today = date.today()
+    end   = end_date or today
+    start = start_date or (end - timedelta(days=30))
+    if start > end:
+        raise HTTPException(status_code=400, detail="start_date must be <= end_date")
+    return PartnershipFilters(start_date=start, end_date=end, sources=sources, compare_mode=compare_mode)
+
+
+@router.get("/partnership", summary="Partnership tab — KPIs, partner rows, monthly trend")
+async def partnership(
+    start_date:   date | None      = Query(None),
+    end_date:     date | None      = Query(None),
+    sources:      list[str] | None = Query(None, description="gpay | phonepe | paytm"),
+    compare_mode: str              = Query("MoM", description="DoD | WoW | MoM"),
+) -> dict[str, Any]:
+    f   = _parse_partnership_filters(start_date, end_date, sources, compare_mode)
+    svc = _partnership_service()
+    try:
+        kpis, partners, trend = await asyncio.gather(
+            asyncio.to_thread(svc.kpis,     f),
+            asyncio.to_thread(svc.partners, f),
+            asyncio.to_thread(svc.trend,    f),
+        )
+        return {
+            "filters":  {"start_date": f.start_date.isoformat(), "end_date": f.end_date.isoformat()},
+            "kpis":     kpis,
+            "partners": partners,
+            "trend":    trend,
+        }
+    except Exception as exc:
+        logger.exception("partnership endpoint failed")
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
