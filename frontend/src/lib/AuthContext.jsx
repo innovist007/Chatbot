@@ -56,14 +56,18 @@ export function AuthProvider({ children }) {
     localStorage.setItem(USER_KEY, JSON.stringify(userData));
     setToken(accessToken);
     setUser(userData);
+    setLoading(true);  // block PageRoute until permissions are ready
     // Register user in Firestore (creates doc if first login)
     try {
       await registerUser(userData.email, userData.name);
-      console.log("✅ Firestore: user registered", userData.email);
     } catch (err) {
       console.error("❌ Firestore registerUser failed:", err);
     }
-    await loadPermissions(userData);
+    try {
+      await loadPermissions(userData);
+    } finally {
+      setLoading(false);
+    }
   }
 
   function logout() {

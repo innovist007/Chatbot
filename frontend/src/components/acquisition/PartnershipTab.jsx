@@ -32,7 +32,7 @@ function sourceName(src) {
 }
 
 // ------------------------------------------------------------------ KPI strip
-function KpiStrip({ kpis, loading, initialLoading, compareMode }) {
+function KpiStrip({ kpis, loading, initialLoading }) {
   const c = kpis?.current ?? {};
   const d = kpis?.deltas  ?? {};
 
@@ -57,7 +57,7 @@ function KpiStrip({ kpis, loading, initialLoading, compareMode }) {
     <LoadingOverlay loading={loading}>
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
         {cards.map(({ label, value, delta }) => (
-          <KpiCard key={label} label={label} value={value} delta={delta} compareLabel={compareMode} />
+          <KpiCard key={label} label={label} value={value} delta={delta} />
         ))}
       </div>
     </LoadingOverlay>
@@ -287,7 +287,7 @@ function CommissionBars({ partners, loading, initialLoading }) {
 }
 
 // ------------------------------------------------------------------ main export
-export function PartnershipTab({ startDate, endDate, compareMode, aiSummary, aiDate, aiLoading }) {
+export function PartnershipTab({ startDate, endDate, compareStart, compareEnd, aiSummary, aiDate, aiLoading }) {
   const [data,           setData]   = useState(null);
   const [loading,        setLoad]   = useState(false);
   const [initialLoading, setInit]   = useState(true);
@@ -295,12 +295,12 @@ export function PartnershipTab({ startDate, endDate, compareMode, aiSummary, aiD
   useEffect(() => {
     let cancelled = false;
     if (!data) setInit(true); else setLoad(true);
-    api.acquisition.partnership({ startDate, endDate, compareMode })
+    api.acquisition.partnership({ startDate, endDate, compareStart, compareEnd })
       .then((d)  => { if (!cancelled) setData(d); })
       .catch(()  => {})
       .finally(() => { if (!cancelled) { setLoad(false); setInit(false); } });
     return () => { cancelled = true; };
-  }, [startDate, endDate, compareMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [startDate, endDate, compareStart, compareEnd]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-6">
@@ -317,7 +317,6 @@ export function PartnershipTab({ startDate, endDate, compareMode, aiSummary, aiD
         kpis={data?.kpis}
         loading={loading}
         initialLoading={initialLoading}
-        compareMode={compareMode}
       />
 
       {/* Partner comparison table */}

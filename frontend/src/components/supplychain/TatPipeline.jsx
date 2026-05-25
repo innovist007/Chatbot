@@ -35,9 +35,9 @@ export function TatPipeline({ kpis, etaPct }) {
       key:      "d2d3",
       caption:  "D2 → D3",
       tone:     "bg-success-light border-success/50 text-success",
-      text:     `${(d2h / 24).toFixed(1)} days — transit (pickup→delivery)`,
+      text:     `${(d2h / 24).toFixed(1)} days transit`,
       width:    Math.max(pct(d2h), 25),
-      minWidth: 180,
+      minWidth: 100,
     },
   ];
 
@@ -48,56 +48,61 @@ export function TatPipeline({ kpis, etaPct }) {
 
   return (
     <div className="rounded-lg border border-border bg-surface px-4 py-3">
-      <div className="flex items-center gap-2">
-        <div className="w-20 text-right text-[10px] text-muted font-medium flex-shrink-0">
-          Order placed
-        </div>
-
-        <div className="flex-1 flex items-stretch gap-1.5 min-w-0">
-          {segments.map((seg) => (
-            <div
-              key={seg.key}
-              className={cn(
-                "h-9 rounded border flex items-center justify-center px-2 text-[11px] font-semibold truncate",
-                seg.tone
-              )}
-              style={{ width: `${seg.width}%`, minWidth: seg.minWidth }}
-              title={seg.text}
-            >
-              {seg.text}
+      {/* overflow-x-auto keeps the pipeline scroll inside this card,
+          preventing it from causing page-level horizontal overflow */}
+      <div className="overflow-x-auto">
+        <div className="min-w-[420px]">
+          {/* Pipeline bar row */}
+          <div className="flex items-center gap-2">
+            <div className="w-16 text-right text-[10px] text-muted font-medium flex-shrink-0">
+              Order placed
             </div>
-          ))}
 
-          <div className="h-9 w-[88px] flex-shrink-0 rounded bg-success text-white text-[11px] font-semibold flex items-center justify-center">
-            Delivered
-          </div>
+            <div className="flex-1 flex items-stretch gap-1.5">
+              {segments.map((seg) => (
+                <div
+                  key={seg.key}
+                  className={cn(
+                    "h-9 rounded border flex items-center justify-center px-2 text-[11px] font-semibold truncate",
+                    seg.tone
+                  )}
+                  style={{ width: `${seg.width}%`, minWidth: seg.minWidth }}
+                  title={seg.text}
+                >
+                  {seg.text}
+                </div>
+              ))}
 
-          <div className="w-2 flex-shrink-0" />
+              <div className="h-9 w-20 flex-shrink-0 rounded bg-success text-white text-[11px] font-semibold flex items-center justify-center">
+                Delivered
+              </div>
 
-          <div className="h-9 rounded border border-danger/40 bg-danger-light text-danger text-[11px] font-semibold px-3 flex items-center justify-center flex-shrink-0">
-            RTO path: +{rtoDays.toFixed(0)}d back
-          </div>
-        </div>
-      </div>
+              <div className="w-2 flex-shrink-0" />
 
-      {/* caption row */}
-      <div className="flex items-center gap-2 mt-1">
-        <div className="w-20 flex-shrink-0" />
-        <div className="flex-1 flex items-stretch gap-1.5 min-w-0">
-          {segments.map((seg) => (
-            <div
-              key={seg.key}
-              className="text-[9px] text-muted text-center"
-              style={{ width: `${seg.width}%`, minWidth: seg.minWidth }}
-            >
-              {seg.caption}
+              <div className="h-9 rounded border border-danger/40 bg-danger-light text-danger text-[11px] font-semibold px-3 flex items-center justify-center flex-shrink-0 whitespace-nowrap">
+                RTO +{rtoDays.toFixed(0)}d
+              </div>
             </div>
-          ))}
-          <div className="w-[88px] flex-shrink-0 text-[9px] text-success text-center font-semibold">
-            {inEtaText || "ETA"}
           </div>
-          <div className="w-2 flex-shrink-0" />
-          <div className="text-[9px] text-muted text-center flex-shrink-0" />
+
+          {/* Caption row */}
+          <div className="flex items-center gap-2 mt-1">
+            <div className="w-16 flex-shrink-0" />
+            <div className="flex-1 flex items-stretch gap-1.5">
+              {segments.map((seg) => (
+                <div
+                  key={seg.key}
+                  className="text-[9px] text-muted text-center"
+                  style={{ width: `${seg.width}%`, minWidth: seg.minWidth }}
+                >
+                  {seg.caption}
+                </div>
+              ))}
+              <div className="w-20 flex-shrink-0 text-[9px] text-success text-center font-semibold">
+                {inEtaText || "ETA"}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

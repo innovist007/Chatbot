@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { TwoTierNav } from "@/components/TwoTierNav";
 import { ChatPanel } from "@/components/ChatPanel";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -13,16 +13,15 @@ import RetentionPage from "./pages/RetentionPage";
 import SupplyChainPage from "./pages/SupplyChainPage";
 import AcquisitionPage from "./pages/AcquisitionPage";
 import AdminPage from "./pages/AdminPage";
-import { todayISO, daysAgoISO } from "@/lib/utils";
+import { todayISO, daysAgoISO, computeCompareDates } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
 import { toast } from "sonner";
 
-// Blocks direct URL access if user doesn't have permission for this route
 function PageRoute({ route, children }) {
   const { canAccess, loading, permissions } = useAuth();
-  if (loading) return null;
+  // Wait for both auth loading AND permissions to be resolved before deciding
+  if (loading || permissions === null) return null;
   if (!canAccess(route)) {
-    // If user has any permitted routes, redirect to their first one
     const first = Array.isArray(permissions) && permissions[0];
     return <Navigate to={first || "/no-access"} replace />;
   }
@@ -56,8 +55,13 @@ function AuthenticatedApp() {
   const [chatWidth, setChatWidth] = useState(500);
   const [startDate, setStartDate] = useState(daysAgoISO(30));
   const [endDate, setEndDate] = useState(todayISO());
-  const [compareMode, setCompareMode] = useState("MoM");
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+
+  // Compare state — mode + optional custom dates for "custom" mode
+  const [compareMode, setCompareMode] = useState("previous_period");
+  const [customCompareStart, setCustomCompareStart] = useState("");
+  const [customCompareEnd, setCustomCompareEnd] = useState("");
+
   const { user, logout } = useAuth();
 
   useEffect(() => {
@@ -65,6 +69,12 @@ function AuthenticatedApp() {
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+
+  // Computed comparison dates — re-derived whenever main dates or compare config changes
+  const compareDates = useMemo(
+    () => computeCompareDates(compareMode, startDate, endDate, customCompareStart, customCompareEnd),
+    [compareMode, startDate, endDate, customCompareStart, customCompareEnd]
+  );
 
   function askChat(question) {
     setChatQuery(question);
@@ -83,7 +93,20 @@ function AuthenticatedApp() {
     if (end) setEndDate(end);
   }
 
-  const pageProps = { startDate, endDate, compareMode, onAskChat: askChat };
+  function handleCompareChange({ mode, customStart, customEnd }) {
+    setCompareMode(mode);
+    if (customStart !== undefined) setCustomCompareStart(customStart);
+    if (customEnd !== undefined) setCustomCompareEnd(customEnd);
+  }
+
+  const pageProps = {
+    startDate,
+    endDate,
+    compareStart:   compareDates?.start ?? null,
+    compareEnd:     compareDates?.end   ?? null,
+    hasComparison:  compareMode !== "none",
+    onAskChat: askChat,
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-bg">
@@ -92,7 +115,10 @@ function AuthenticatedApp() {
         endDate={endDate}
         onDateChange={handleDateChange}
         compareMode={compareMode}
-        onCompareModeChange={setCompareMode}
+        customCompareStart={customCompareStart}
+        customCompareEnd={customCompareEnd}
+        compareDates={compareDates}
+        onCompareChange={handleCompareChange}
         onAskBot={() => setChatOpen(true)}
         user={user}
         onLogout={logout}

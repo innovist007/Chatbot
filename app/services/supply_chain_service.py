@@ -43,13 +43,16 @@ class SupplyChainFilters:
     start_date: date
     end_date: date
     compare_mode: str = "MoM"
+    compare_start: date | None = None
+    compare_end: date | None = None
 
     def cache_key(self, prefix: str) -> str:
         return ":".join([
             prefix,
             self.start_date.isoformat(),
             self.end_date.isoformat(),
-            self.compare_mode,
+            (self.compare_start.isoformat() if self.compare_start else self.compare_mode),
+            (self.compare_end.isoformat() if self.compare_end else ""),
         ])
 
 
@@ -132,7 +135,10 @@ class SupplyChainService:
             return cached
 
         curr = self._kpi_aggregates(f)
-        prev_start, prev_end = previous_period(f.start_date, f.end_date, f.compare_mode)
+        if f.compare_start and f.compare_end:
+            prev_start, prev_end = f.compare_start, f.compare_end
+        else:
+            prev_start, prev_end = previous_period(f.start_date, f.end_date, f.compare_mode)
         prev = self._kpi_aggregates(SupplyChainFilters(
             start_date=prev_start, end_date=prev_end,
             compare_mode=f.compare_mode,
@@ -379,8 +385,11 @@ class SupplyChainService:
         """
         rows = self._run(sql, params)
 
-        # Previous period RTO% per segment (for MoM Δ)
-        prev_start, prev_end = previous_period(f.start_date, f.end_date, f.compare_mode)
+        # Previous period RTO% per segment
+        if f.compare_start and f.compare_end:
+            prev_start, prev_end = f.compare_start, f.compare_end
+        else:
+            prev_start, prev_end = previous_period(f.start_date, f.end_date, f.compare_mode)
         prev_f = SupplyChainFilters(
             start_date=prev_start, end_date=prev_end, compare_mode=f.compare_mode,
         )

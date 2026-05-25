@@ -30,6 +30,7 @@ def _service() -> WebCRService:
 def _parse_filters(
     start_date: date | None,
     end_date: date | None,
+    compare_mode: str,
     channel_groups: list[str] | None,
     devices: list[str] | None,
     countries: list[str] | None,
@@ -37,6 +38,8 @@ def _parse_filters(
     content_groups: list[str] | None,
     landing_pages: list[str] | None,
     session_types: list[str] | None,
+    compare_start: date | None = None,
+    compare_end: date | None = None,
 ) -> WebCRFilters:
     today = date.today()
     end = end_date or today
@@ -45,6 +48,8 @@ def _parse_filters(
         raise HTTPException(status_code=400, detail="start_date must be <= end_date")
     return WebCRFilters(
         start_date=start, end_date=end,
+        compare_mode=compare_mode,
+        compare_start=compare_start, compare_end=compare_end,
         channel_groups=channel_groups, devices=devices, countries=countries,
         campaigns=campaigns, content_groups=content_groups,
         landing_pages=landing_pages, session_types=session_types,
@@ -55,6 +60,9 @@ def _parse_filters(
 async def web_cr(
     start_date: date | None = Query(None),
     end_date: date | None = Query(None),
+    compare_mode: str = Query("MoM"),
+    compare_start: date | None = Query(None),
+    compare_end: date | None = Query(None),
     channel_groups: list[str] | None = Query(None),
     devices: list[str] | None = Query(None),
     countries: list[str] | None = Query(None),
@@ -64,33 +72,26 @@ async def web_cr(
     session_types: list[str] | None = Query(None),
 ) -> dict[str, Any]:
     f = _parse_filters(
-        start_date, end_date, channel_groups, devices, countries,
+        start_date, end_date, compare_mode, channel_groups, devices, countries,
         campaigns, content_groups, landing_pages, session_types,
+        compare_start, compare_end,
     )
     svc = _service()
     try:
-        (
-            overview,
-            funnel,
-            funnel_by_channel,
-            funnel_by_device,
-            funnel_heatmap,
-            page_funnel,
-            top_landing_pages,
-            top_channels,
-            top_content_groups,
-            channel_table,
-            channel_trend,
-            content_group_cr,
-            product_pages,
-            top_campaigns,
-            by_source,
-            by_device,
-            by_country,
-            landing_pages_data,
-            by_hour,
-            cr_trend,
-        ) = await asyncio.gather(
+        KEYS = [
+            "overview", "funnel", "funnel_by_channel", "funnel_by_device",
+            "funnel_heatmap", "page_funnel", "top_landing_pages", "top_channels",
+            "top_content_groups", "channel_table", "channel_trend", "content_group_cr",
+            "product_pages", "top_campaigns", "by_source", "by_device", "by_country",
+            "landing_pages", "by_hour", "cr_trend",
+            "funnel_trend", "channel_funnel_trend", "landing_page_funnel_trend",
+        ]
+        DEFAULTS = [
+            None, [], [], [], [], [], [], [], [], [], {"channels":[],"rows":[]}, [],
+            [], [], [], [], [], [], [], [],
+            [], {"channels":[],"rows":[]}, {"pages":[],"rows":[]},
+        ]
+        results = await asyncio.gather(
             asyncio.to_thread(svc.overview, f),
             asyncio.to_thread(svc.funnel, f),
             asyncio.to_thread(svc.funnel_by_channel, f),
@@ -111,33 +112,24 @@ async def web_cr(
             asyncio.to_thread(svc.landing_pages, f),
             asyncio.to_thread(svc.by_hour, f),
             asyncio.to_thread(svc.cr_trend, f),
+            asyncio.to_thread(svc.funnel_trend, f),
+            asyncio.to_thread(svc.channel_funnel_trend, f, 5),
+            asyncio.to_thread(svc.landing_page_funnel_trend, f, 10),
+            return_exceptions=True,
         )
-        return {
+        payload: dict[str, Any] = {
             "filters": {
                 "start_date": f.start_date.isoformat(),
                 "end_date": f.end_date.isoformat(),
-            },
-            "overview":          overview,
-            "funnel":            funnel,
-            "funnel_by_channel": funnel_by_channel,
-            "funnel_by_device":  funnel_by_device,
-            "funnel_heatmap":    funnel_heatmap,
-            "page_funnel":       page_funnel,
-            "top_landing_pages": top_landing_pages,
-            "top_channels":      top_channels,
-            "top_content_groups": top_content_groups,
-            "channel_table":     channel_table,
-            "channel_trend":     channel_trend,
-            "content_group_cr":  content_group_cr,
-            "product_pages":     product_pages,
-            "top_campaigns":     top_campaigns,
-            "by_source":         by_source,
-            "by_device":         by_device,
-            "by_country":        by_country,
-            "landing_pages":     landing_pages_data,
-            "by_hour":           by_hour,
-            "cr_trend":          cr_trend,
+            }
         }
+        for key, result, default in zip(KEYS, results, DEFAULTS):
+            if isinstance(result, Exception):
+                logger.error("web_cr section '%s' failed: %s", key, result)
+                payload[key] = default
+            else:
+                payload[key] = result
+        return payload
     except Exception as exc:  # noqa: BLE001
         logger.exception("web_cr dashboard failed")
         raise HTTPException(
@@ -156,6 +148,16 @@ async def filter_options() -> dict[str, list[str]]:
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Could not load filter options: {exc}",
         ) from exc
+
+
+@router.get("/latest-date", summary="Most recent date with data in BigQuery")
+async def latest_date() -> dict[str, str | None]:
+    try:
+        d = await asyncio.to_thread(_service().get_latest_date)
+        return {"date": d.isoformat() if d else None}
+    except Exception as exc:
+        logger.warning("latest_date failed: %s", exc)
+        return {"date": None}
 
 # For AI summary
 @router.get("/ai-summary", summary="AI summary of latest day data")

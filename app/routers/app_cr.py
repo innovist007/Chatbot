@@ -33,6 +33,8 @@ async def get_app_cr_overview(
     platforms: list[str] | None = Query(None),
     users: list[str] | None = Query(None),
     compare_mode: str = Query("MoM"),
+    compare_start: date | None = Query(None),
+    compare_end: date | None = Query(None),
 ):
     svc = _service()
     f = AppCRFilters(
@@ -41,6 +43,8 @@ async def get_app_cr_overview(
         platforms=platforms,
         users=users,
         compare_mode=compare_mode,
+        compare_start=compare_start,
+        compare_end=compare_end,
     )
     overview, funnel, by_platform, install_attribution, push_performance = await asyncio.gather(
         asyncio.to_thread(svc.overview, f),

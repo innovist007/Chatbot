@@ -44,7 +44,7 @@ export function DataTable({ columns, rows, getRowKey, className, maxHeight }) {
                     c.mono && "font-mono tnum"
                   )}
                 >
-                  {c.render ? c.render(row) : row[c.key]}
+                  {c.render ? c.render(row, i) : row[c.key]}
                 </td>
               ))}
             </tr>

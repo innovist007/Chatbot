@@ -33,6 +33,8 @@ async def d2c_rto_overview(
     payment: str | None = Query(None),
     customer: str | None = Query(None),
     compare_mode: str = Query("MoM"),
+    compare_start: date | None = Query(None),
+    compare_end: date | None = Query(None),
 ) -> dict:
     service = _service()
     filters = D2CRtoFilters(
@@ -41,6 +43,8 @@ async def d2c_rto_overview(
         payment=payment,
         customer=customer,
         compare_mode=compare_mode,
+        compare_start=compare_start,
+        compare_end=compare_end,
     )
 
     # Fetch all sections in parallel — no sequential blocking

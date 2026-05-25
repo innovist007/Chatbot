@@ -19,19 +19,21 @@ class D2CRtoFilters:
     """Filters for D2C RTO queries."""
     start_date: date
     end_date: date
-    payment: str | None = None  # COD, Prepaid, or None for All
-    customer: str | None = None  # New, Repeat, or None for All
+    payment: str | None = None
+    customer: str | None = None
     compare_mode: str = "MoM"
-    
+    compare_start: date | None = None
+    compare_end: date | None = None
+
     def cache_key(self, prefix: str) -> str:
-        """Generate cache key for these filters."""
         parts = [
             prefix,
             self.start_date.isoformat(),
             self.end_date.isoformat(),
             self.payment or "all",
             self.customer or "all",
-            self.compare_mode,
+            (self.compare_start.isoformat() if self.compare_start else self.compare_mode),
+            (self.compare_end.isoformat() if self.compare_end else ""),
         ]
         return ":".join(parts)
 
@@ -181,7 +183,10 @@ class D2CRtoService:
         curr = self._derive(self._aggregates(f))
         
         # Previous period
-        prev_start, prev_end = previous_period(f.start_date, f.end_date, f.compare_mode)
+        if f.compare_start and f.compare_end:
+            prev_start, prev_end = f.compare_start, f.compare_end
+        else:
+            prev_start, prev_end = previous_period(f.start_date, f.end_date, f.compare_mode)
         prev_filters = D2CRtoFilters(
             start_date=prev_start,
             end_date=prev_end,

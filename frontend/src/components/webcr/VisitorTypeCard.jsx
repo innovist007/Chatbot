@@ -6,7 +6,7 @@ const RET_COLOR = "#1D9E75";
 
 export function VisitorTypeCard({ newPct, returningPct, newCr, returningCr }) {
   const data = [
-    { name: "New", value: (newPct || 0) * 100, color: NEW_COLOR, cr: newCr },
+    { name: "New",       value: (newPct       || 0) * 100, color: NEW_COLOR, cr: newCr       },
     { name: "Returning", value: (returningPct || 0) * 100, color: RET_COLOR, cr: returningCr },
   ];
 
@@ -48,21 +48,28 @@ export function VisitorTypeCard({ newPct, returningPct, newCr, returningCr }) {
         </PieChart>
       </ResponsiveContainer>
 
-      <div className="flex rounded overflow-hidden mt-3 h-7 text-[10px] font-semibold text-white">
-        <div
-          className="flex items-center justify-center px-2"
-          style={{ background: NEW_COLOR, width: `${data[0].value}%` }}
-          title={`New ${data[0].value.toFixed(1)}%`}
-        >
-          New · {data[0].value.toFixed(1)}% · CR {fmt.pct(newCr, 2)}
-        </div>
-        <div
-          className="flex items-center justify-center px-2"
-          style={{ background: RET_COLOR, width: `${data[1].value}%` }}
-          title={`Returning ${data[1].value.toFixed(1)}%`}
-        >
-          Returning · {data[1].value.toFixed(1)}% · CR {fmt.pct(returningCr, 2)}
-        </div>
+      {/* Proportional colour bar — no text inside, labels always below */}
+      <div className="flex rounded overflow-hidden mt-3 h-3">
+        <div style={{ background: NEW_COLOR, width: `${data[0].value}%` }} />
+        <div style={{ background: RET_COLOR, width: `${data[1].value}%` }} />
+      </div>
+
+      {/* Legend — always fully visible regardless of segment width */}
+      <div className="flex gap-3 mt-2">
+        {data.map((d) => (
+          <div key={d.name} className="flex items-start gap-1.5 min-w-0">
+            <span
+              className="mt-0.5 w-2.5 h-2.5 rounded-sm flex-shrink-0"
+              style={{ background: d.color }}
+            />
+            <div className="text-[11px] leading-tight min-w-0">
+              <div className="font-semibold text-text">{d.name}</div>
+              <div className="text-muted tnum">
+                {d.value.toFixed(1)}% · CR {fmt.pct(d.cr, 2)}
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

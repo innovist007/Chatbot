@@ -26,13 +26,14 @@ function generateKpiInsight(metricName, delta) {
   return insights[metricName] || `${metricName} changed ${mag}%.`;
 }
 
-export default function AppCRPage({ onAskChat, startDate, endDate, compareMode }) {
+export default function AppCRPage({ onAskChat, startDate, endDate, compareStart, compareEnd, hasComparison }) {
   const {
     data, loading, error,
     aiSummary,
     platform, setPlatform,
     user,     setUser,
-  } = useAppCR({ startDate, endDate, compareMode });
+  } = useAppCR({ startDate, endDate, compareStart, compareEnd });
+  const delta = hasComparison ? (v) => v : () => null;
 
   if (loading) {
     return (
@@ -97,18 +98,18 @@ export default function AppCRPage({ onAskChat, startDate, endDate, compareMode }
           <KpiCard
             label="App opens"
             value={fmt.num(current.app_opens)}
-            delta={deltas.app_opens}
+            delta={delta(deltas.app_opens)}
             format="num"
-            compareLabel={compareMode} 
+
             insight={generateKpiInsight("App opens", deltas.app_opens)}
             onAsk={() => onAskChat?.("Why did app opens change?")}
           />
           <KpiCard
             label="App CR"
             value={fmt.pct(current.app_cr)}
-            delta={deltas.app_cr}
+            delta={delta(deltas.app_cr)}
             format="pct"
-            compareLabel={compareMode} 
+
             deltaFormat="pp"
             insight={generateKpiInsight("App CR", deltas.app_cr)}
             onAsk={() => onAskChat?.("What's driving the CR change?")}
@@ -116,18 +117,18 @@ export default function AppCRPage({ onAskChat, startDate, endDate, compareMode }
           <KpiCard
             label="App AOV"
             value={fmt.inr(current.avg_aov)}
-            delta={deltas.avg_aov}
+            delta={delta(deltas.avg_aov)}
             format="curr"
-            compareLabel={compareMode} 
+
             insight={generateKpiInsight("App AOV", deltas.avg_aov)}
             onAsk={() => onAskChat?.("Why did AOV change?")}
           />
           <KpiCard
             label="Revenue per open"
             value={fmt.inr(current.revenue_per_open)}
-            delta={deltas.revenue_per_open}
+            delta={delta(deltas.revenue_per_open)}
             format="curr"
-            compareLabel={compareMode} 
+
             insight={generateKpiInsight("Revenue per open", deltas.revenue_per_open)}
             onAsk={() => onAskChat?.("How to improve revenue per open?")}
           />
@@ -139,18 +140,16 @@ export default function AppCRPage({ onAskChat, startDate, endDate, compareMode }
         <KpiCard
           label="Installs"
           value={fmt.num(current.installs)}
-          delta={deltas.installs}
+          delta={delta(deltas.installs)}
           format="num"
-          compareLabel={compareMode} 
           insight={generateKpiInsight("Installs", deltas.installs)}
           onAsk={() => onAskChat?.("How to increase installs?")}
         />
     <KpiCard
   label="Uninstalls"
   value={fmt.num(current.uninstalls)}
-  delta={deltas.uninstalls}
+  delta={delta(deltas.uninstalls)}
   format="num"
-  compareLabel={compareMode} 
   insight={
     deltas.uninstalls && deltas.uninstalls > 0
       ? `Uninstalls up — ${fmt.pct(uninstallRate)} rate. Check app stability.`
@@ -163,19 +162,19 @@ export default function AppCRPage({ onAskChat, startDate, endDate, compareMode }
         <KpiCard
           label="DAU / MAU"
           value={fmt.pct(current.dau_mau)}
-          delta={deltas.dau_mau}
+          delta={delta(deltas.dau_mau)}
           format="pct"
           deltaFormat="pp"
-          compareLabel={compareMode}
+
           insight={generateKpiInsight("DAU / MAU", deltas.dau_mau)}
           onAsk={() => onAskChat?.("How to improve user stickiness?")}
         />
         <KpiCard
           label="Avg sessions / user"
           value={current.avg_sessions_per_user?.toFixed(1)}
-          delta={deltas.avg_sessions_per_user}
+          delta={delta(deltas.avg_sessions_per_user)}
           format="num"
-          compareLabel={compareMode}
+
           insight={generateKpiInsight("Avg sessions / user", deltas.avg_sessions_per_user)}
           onAsk={() => onAskChat?.("How to increase session frequency?")}
         />

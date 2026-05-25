@@ -22,13 +22,14 @@ function generateKpiInsight(metricName, delta) {
   return insights[metricName] || `${metricName} changed ${mag}%.`;
 }
 
-export default function D2CRtoPage({ onAskChat, startDate, endDate, compareMode }) {
+export default function D2CRtoPage({ onAskChat, startDate, endDate, compareStart, compareEnd, hasComparison }) {
   const {
     data, loading, error,
     aiSummary,
     payment,  setPayment,
     customer, setCustomer,
-  } = useD2CRto({ startDate, endDate, compareMode });
+  } = useD2CRto({ startDate, endDate, compareStart, compareEnd });
+  const delta = hasComparison ? (v) => v : () => null;
 
 //   if (error) {
 //     return (
@@ -78,37 +79,37 @@ export default function D2CRtoPage({ onAskChat, startDate, endDate, compareMode 
               <KpiCard
                 label="RTO%"
                 value={fmt.pct(current.rto_pct)}
-                delta={deltas.rto_pct}
+                delta={delta(deltas.rto_pct)}
                 format="pct"
                 deltaFormat="pp"
-                compareLabel={compareMode}
+
                 insight={generateKpiInsight("RTO%", deltas.rto_pct)}
                 onAsk={() => onAskChat?.("Why is RTO% changing?")}
               />
               <KpiCard
                 label="RTO orders"
                 value={fmt.num(current.rto_orders)}
-                delta={deltas.rto_orders}
+                delta={delta(deltas.rto_orders)}
                 format="num"
-                compareLabel={compareMode}
+
                 insight={generateKpiInsight("RTO orders", deltas.rto_orders)}
                 onAsk={() => onAskChat?.("Which pincodes drive RTO?")}
               />
               <KpiCard
                 label="RTO loss"
                 value={fmt.inr(current.rto_loss)}
-                delta={deltas.rto_loss}
+                delta={delta(deltas.rto_loss)}
                 format="curr"
-                compareLabel={compareMode}
+
                 insight="Forward + reverse shipping costs"
                 onAsk={() => onAskChat?.("How can we reduce RTO loss?")}
               />
               <KpiCard
                 label="Loss per RTO"
                 value={fmt.inr(current.loss_per_rto)}
-                delta={deltas.loss_per_rto}
+                delta={delta(deltas.loss_per_rto)}
                 format="curr"
-                compareLabel={compareMode}
+
                 insight={generateKpiInsight("Loss per RTO", deltas.loss_per_rto)}
                 onAsk={() => onAskChat?.("Why is loss per RTO changing?")}
               />
@@ -124,36 +125,36 @@ export default function D2CRtoPage({ onAskChat, startDate, endDate, compareMode 
             <KpiCard
               label="Delivered orders"
               value={fmt.num(current.delivered_orders)}
-              delta={deltas.delivered_orders}
+              delta={delta(deltas.delivered_orders)}
               format="num"
-              compareLabel={compareMode}
+
               insight={`${fmt.pct(current.delivery_rate)} delivery rate`}
               onAsk={() => onAskChat?.("How can we improve delivery rate?")}
             />
             <KpiCard
               label="Cancelled"
               value={fmt.num(current.cancelled)}
-              delta={deltas.cancelled}
+              delta={delta(deltas.cancelled)}
               format="num"
-              compareLabel={compareMode}
+
               insight={`${fmt.pct(current.cancellation_rate)} pre-shipment`}
               onAsk={() => onAskChat?.("Why are orders being cancelled?")}
             />
             <KpiCard
               label="RTO TAT"
               value={`${current.rto_tat_days || 0} days`}
-              delta={deltas.rto_tat_days}
+              delta={delta(deltas.rto_tat_days)}
               format="num"
-              compareLabel={compareMode}
+
               insight="Locks inventory"
               onAsk={() => onAskChat?.("How to reduce RTO TAT?")}
             />
             <KpiCard
               label="Inventory locked"
               value={fmt.inr(current.inventory_locked)}
-              delta={deltas.inventory_locked}
+              delta={delta(deltas.inventory_locked)}
               format="curr"
-              compareLabel={compareMode}
+
               insight="In-flight RTO stock"
               onAsk={() => onAskChat?.("How to free up locked inventory?")}
             />

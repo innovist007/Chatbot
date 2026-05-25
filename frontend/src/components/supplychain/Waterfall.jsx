@@ -1,11 +1,11 @@
 import { fmt, cn } from "@/lib/utils";
 
 const STEP_TONE = {
-  Cancelled:    { bar: "bg-warning",       text: "text-warning" },
-  RTO:          { bar: "bg-danger",        text: "text-danger" },
-  Others:       { bar: "bg-dim",           text: "text-muted" },
-  "In-transit": { bar: "bg-accent",        text: "text-accent" },
-  Delivered:    { bar: "bg-success",       text: "text-success" },
+  Cancelled:    { bar: "bg-warning",  text: "text-warning" },
+  RTO:          { bar: "bg-danger",   text: "text-danger"  },
+  Others:       { bar: "bg-dim",      text: "text-muted"   },
+  "In-transit": { bar: "bg-accent",   text: "text-accent"  },
+  Delivered:    { bar: "bg-success",  text: "text-success" },
 };
 
 export function Waterfall({ data }) {
@@ -27,58 +27,31 @@ export function Waterfall({ data }) {
   return (
     <div className="space-y-1.5">
       {/* Total */}
-      <Row label="Total orders" annotation="100% of orders" bold>
-        <div className="h-7 rounded bg-accent flex items-center px-2 text-[11px] font-semibold text-white w-full">
-          {fmt.num(total)} · 100%
-        </div>
+      <Row label="Total orders" bold>
+        <Bar pct={100} tone="bg-accent" text={`${fmt.num(total)} · 100%`} textInside />
       </Row>
 
       {/* Erosion steps */}
       {rows.map((s) => {
         const tone = STEP_TONE[s.label] || STEP_TONE.Others;
         const barPct = (s.share || 0) * 100;
-        const labelInside = barPct >= 6;
+        const numText = `−${fmt.num(s.orders)}`;
+        const inside = barPct >= 18;
         return (
-          <Row
-            key={s.label}
-            label={`− ${s.label}`}
-            labelColor={tone.text}
-            annotation={`−${fmt.pct(s.share)}`}
-            annotationColor={tone.text}
-          >
-            <div className="relative h-7 w-full bg-elevated rounded overflow-visible flex items-center justify-end">
-              {!labelInside && (
-                <span className={cn("mr-1.5 text-[10px] font-semibold whitespace-nowrap", tone.text)}>
-                  −{fmt.num(s.orders)}
-                </span>
-              )}
-              <div
-                className={cn(
-                  "h-7 rounded flex items-center justify-end px-2 text-[10px] font-semibold text-white",
-                  tone.bar
-                )}
-                style={{ width: `${barPct}%`, minWidth: barPct > 0 ? "8px" : 0 }}
-              >
-                {labelInside && `−${fmt.num(s.orders)}`}
-              </div>
-            </div>
+          <Row key={s.label} label={`− ${s.label}`} labelColor={tone.text}>
+            <Bar pct={barPct} tone={tone.bar} text={numText} textInside={inside} textColor={tone.text} />
           </Row>
         );
       })}
 
       {/* Delivered survivor */}
-      <Row
-        label="= Delivered"
-        annotation={`${fmt.pct(delivered.share)} surviving`}
-        annotationColor={STEP_TONE.Delivered.text}
-        bold
-      >
-        <div
-          className="h-7 rounded bg-success flex items-center px-2 text-[11px] font-semibold text-white"
-          style={{ width: `${(delivered.share || 0) * 100}%`, minWidth: "32px" }}
-        >
-          {fmt.num(delivered.orders)} · {fmt.pct(delivered.share)}
-        </div>
+      <Row label="= Delivered" bold labelColor="text-success">
+        <Bar
+          pct={(delivered.share || 0) * 100}
+          tone="bg-success"
+          text={`${fmt.num(delivered.orders)} · ${fmt.pct(delivered.share)}`}
+          textInside
+        />
       </Row>
 
       <RevenueErosion byLabel={byLabel} delivered={delivered} />
@@ -86,11 +59,34 @@ export function Waterfall({ data }) {
   );
 }
 
+function Bar({ pct, tone, text, textInside, textColor }) {
+  const safePct = Math.max(pct, pct > 0 ? 1 : 0);
+  return (
+    <div className="flex items-center gap-2 w-full">
+      {/* Bar grows left-to-right */}
+      <div className="flex-1 h-7 bg-elevated rounded overflow-hidden min-w-0">
+        <div
+          className={cn("h-7 flex items-center px-2 text-[10px] font-semibold text-white whitespace-nowrap overflow-hidden", tone)}
+          style={{ width: `${safePct}%`, minWidth: safePct > 0 ? "6px" : 0 }}
+        >
+          {textInside && text}
+        </div>
+      </div>
+      {/* Number as flex sibling — always visible */}
+      {!textInside && (
+        <span className={cn("flex-shrink-0 text-[10px] font-semibold whitespace-nowrap", textColor || "text-muted")}>
+          {text}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function RevenueErosion({ byLabel, delivered }) {
-  const cancelledRev  = byLabel?.Cancelled?.revenue || 0;
-  const rtoRev        = byLabel?.RTO?.revenue       || 0;
-  const deliveredRev  = delivered?.revenue          || 0;
-  const totalGmv      = cancelledRev + rtoRev + deliveredRev;
+  const cancelledRev = byLabel?.Cancelled?.revenue || 0;
+  const rtoRev       = byLabel?.RTO?.revenue       || 0;
+  const deliveredRev = delivered?.revenue          || 0;
+  const totalGmv     = cancelledRev + rtoRev + deliveredRev;
   if (totalGmv <= 0) return null;
 
   const cancelledPct = (cancelledRev / totalGmv) * 100;
@@ -99,44 +95,30 @@ function RevenueErosion({ byLabel, delivered }) {
   return (
     <>
       <hr className="border-t border-border my-2" />
-      <RevenueRow label="− Cancelled rev" tone="warning" pct={cancelledPct} text={`−${fmt.inr(cancelledRev)}`}  annotation="estimated GMV loss" />
-      <RevenueRow label="− RTO rev loss"  tone="danger"  pct={rtoPct}       text={`−${fmt.inr(rtoRev)} · ${rtoPct.toFixed(1)}% of GMV`} annotation={`−${rtoPct.toFixed(1)}% of GMV`} />
+      <Row label="− Cancelled rev" labelColor="text-warning">
+        <Bar pct={cancelledPct} tone="bg-warning" text={`−${fmt.inr(cancelledRev)}`}
+          textInside={cancelledPct >= 10} textColor="text-warning" />
+      </Row>
+      <Row label="− RTO rev loss" labelColor="text-danger">
+        <Bar pct={rtoPct} tone="bg-danger" text={`−${fmt.inr(rtoRev)} · ${rtoPct.toFixed(1)}% GMV`}
+          textInside={false} textColor="text-danger" />
+      </Row>
     </>
   );
 }
 
-function RevenueRow({ label, tone, pct, text, annotation }) {
-  const labelInside = pct >= 18;
-  const barCls  = tone === "danger" ? "bg-danger"  : "bg-warning";
-  const textCls = tone === "danger" ? "text-danger" : "text-warning";
+function Row({ label, labelColor, children, bold }) {
   return (
-    <Row label={label} labelColor={textCls} annotation={annotation} annotationColor={textCls}>
-      <div className="relative h-7 w-full bg-elevated rounded overflow-visible flex items-center justify-end">
-        {!labelInside && (
-          <span className={cn("mr-1.5 text-[10px] font-semibold whitespace-nowrap", textCls)}>
-            {text}
-          </span>
-        )}
-        <div
-          className={cn("h-7 rounded flex items-center justify-end px-2 text-[10px] font-semibold text-white whitespace-nowrap", barCls)}
-          style={{ width: `${Math.max(pct, 0.5)}%`, minWidth: pct > 0 ? "8px" : 0 }}
-        >
-          {labelInside && text}
-        </div>
-      </div>
-    </Row>
-  );
-}
-
-function Row({ label, labelColor, children, annotation, annotationColor, bold }) {
-  return (
-    <div className="flex items-center gap-3">
-      <div className={cn("w-32 text-right text-[11px] flex-shrink-0", bold && "font-semibold text-text", !bold && "text-muted", labelColor)}>
+    <div className="flex items-center gap-2">
+      <div className={cn(
+        "w-20 sm:w-28 text-right text-[10px] sm:text-[11px] flex-shrink-0",
+        bold ? "font-semibold text-text" : "text-muted",
+        labelColor,
+      )}>
         {label}
       </div>
-      <div className="flex-1">{children}</div>
-      <div className={cn("w-40 text-right text-[10px] font-medium flex-shrink-0", annotationColor || "text-muted")}>
-        {annotation}
+      <div className="flex-1 min-w-0">
+        {children}
       </div>
     </div>
   );

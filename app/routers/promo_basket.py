@@ -33,16 +33,19 @@ def _parse_filters(
     start_date: date | None,
     end_date: date | None,
     compare_mode: str,
+    compare_start: date | None = None,
+    compare_end: date | None = None,
 ) -> PromoBasketFilters:
     today = date.today()
     end   = end_date   or today
     start = start_date or (end - timedelta(days=30))
     if start > end:
         raise HTTPException(status_code=400, detail="start_date must be <= end_date")
-    compare_mode = compare_mode.lower()
-    if compare_mode not in {"dod", "wow", "mom", "yoy"}:
-        raise HTTPException(status_code=400, detail="compare_mode must be one of: dod, wow, mom, yoy")
-    return PromoBasketFilters(start_date=start, end_date=end, compare_mode=compare_mode)
+    return PromoBasketFilters(
+        start_date=start, end_date=end,
+        compare_mode=compare_mode.lower(),
+        compare_start=compare_start, compare_end=compare_end,
+    )
 
 
 @router.get("/overview", summary="Full Promo Basket dashboard payload")
@@ -50,8 +53,10 @@ async def promo_basket(
     start_date: date | None = Query(None),
     end_date: date | None = Query(None),
     compare_mode: str = Query("mom"),
+    compare_start: date | None = Query(None),
+    compare_end: date | None = Query(None),
 ) -> dict[str, Any]:
-    f   = _parse_filters(start_date, end_date, compare_mode)
+    f   = _parse_filters(start_date, end_date, compare_mode, compare_start, compare_end)
     svc = _service()
     try:
         overview, coupon_performance, basket_distribution, discount_distribution = await asyncio.gather(

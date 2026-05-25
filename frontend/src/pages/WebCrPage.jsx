@@ -28,7 +28,7 @@ function PlaceholderTab({ tabKey }) {
   );
 }
 
-export default function WebCrPage({ onAskChat, startDate, endDate, compareMode }) {
+export default function WebCrPage({ onAskChat, startDate, endDate, compareStart, compareEnd, hasComparison }) {
   const [tab, setTab] = useState("overview");
 
   const {
@@ -37,7 +37,7 @@ export default function WebCrPage({ onAskChat, startDate, endDate, compareMode }
     filters, setters,
     device, setDevice,
     visitor, setVisitor,
-  } = useWebCR({ startDate, endDate });
+  } = useWebCR({ startDate, endDate, compareStart, compareEnd });
 
   return (
     <div className="px-6 py-6 max-w-[1600px] mx-auto">
@@ -83,8 +83,8 @@ export default function WebCrPage({ onAskChat, startDate, endDate, compareMode }
           data={data}
           initialLoading={initialLoading}
           loading={loading}
-          compareMode={compareMode}
           onAskChat={onAskChat}
+          hasComparison={hasComparison}
         />
       </div>
 

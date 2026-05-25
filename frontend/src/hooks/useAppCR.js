@@ -3,17 +3,17 @@ import { api } from "@/lib/api";
 import { useAsyncData } from "./useAsyncData";
 import { useAiSummary } from "./useAiSummary";
 
-export function useAppCR({ startDate, endDate, compareMode }) {
+export function useAppCR({ startDate, endDate, compareStart = null, compareEnd = null }) {
   const [platform, setPlatform] = useState("All");
   const [user,     setUser]     = useState("All");
 
   const { data, loading, initialLoading, error } = useAsyncData(
     () => api.appCr.overview({
-      startDate, endDate, compareMode,
+      startDate, endDate, compareStart, compareEnd,
       platforms: platform === "All" ? null : [platform],
       users:     user     === "All" ? null : [user],
     }),
-    [startDate, endDate, platform, user, compareMode]
+    [startDate, endDate, compareStart, compareEnd, platform, user]
   );
 
   const { summary: aiSummary } = useAiSummary(() => api.appCr.aiSummary());

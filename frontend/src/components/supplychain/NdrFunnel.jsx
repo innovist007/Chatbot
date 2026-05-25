@@ -6,11 +6,11 @@ export function NdrFunnel({ data }) {
   }
   const total = data.total_orders;
   const steps = [
-    { label: "All orders",             orders: total,                        share: 1,                                   tone: "blue",     pctLabel: "100%" },
-    { label: "NDR raised",             orders: data.ndr_raised,              share: data.ndr_raised / (total || 1),      tone: "red",      pctLabel: `${fmt.pct(data.ndr_rate)} of orders` },
-    { label: "Re-attempted",           orders: data.reattempted,             share: data.reattempted / (total || 1),     tone: "amber",    pctLabel: `${fmt.pct(data.reattempt_rate)} re-attempt rate` },
-    { label: "Delivered on re-attempt",orders: data.delivered_on_reattempt, share: data.delivered_on_reattempt / (total || 1), tone: "green", pctLabel: `${fmt.pct(data.reattempt_success_rate)} of re-attempts` },
-    { label: "→ RTO",                  orders: data.ndr_to_rto,             share: data.ndr_to_rto / (total || 1),      tone: "red-dark", pctLabel: `${fmt.pct(data.ndr_to_rto_rate)} of NDR` },
+    { label: "All orders",              orders: total,                         share: 1,                                    tone: "blue"     },
+    { label: "NDR raised",              orders: data.ndr_raised,               share: data.ndr_raised / (total || 1),       tone: "red"      },
+    { label: "Re-attempted",            orders: data.reattempted,              share: data.reattempted / (total || 1),      tone: "amber"    },
+    { label: "Delivered on re-attempt", orders: data.delivered_on_reattempt,   share: data.delivered_on_reattempt / (total || 1), tone: "green" },
+    { label: "→ RTO",                   orders: data.ndr_to_rto,               share: data.ndr_to_rto / (total || 1),       tone: "red-dark" },
   ];
 
   const ndrToRtoRate  = data.ndr_to_rto_rate  || 0;
@@ -51,24 +51,33 @@ const LABEL_TONE = {
   "red-dark": "text-danger",
 };
 
-function FunnelRow({ label, orders, share, tone, pctLabel }) {
-  const pctWidth = Math.max(share * 100, 2);
+function FunnelRow({ label, orders, share, tone }) {
+  const pctWidth  = Math.max(share * 100, 2);
+  const numInside = pctWidth >= 14;
+
   return (
-    <div className="flex items-center gap-3">
-      <div className={cn("w-40 text-right text-[11px] flex-shrink-0 font-medium", LABEL_TONE[tone])}>
+    <div className="flex items-center gap-2">
+      {/* Label */}
+      <div className={cn("w-24 sm:w-40 text-right text-[10px] sm:text-[11px] flex-shrink-0 font-medium", LABEL_TONE[tone])}>
         {label}
       </div>
-      <div className="flex-1 h-6 bg-elevated rounded relative overflow-hidden">
+
+      {/* Bar — overflow:hidden so bar edges are clean */}
+      <div className="flex-1 h-6 bg-elevated rounded overflow-hidden min-w-0">
         <div
           className={cn("h-6 flex items-center px-2 text-[11px] font-semibold text-white", TONE[tone])}
           style={{ width: `${pctWidth}%` }}
         >
-          {fmt.num(orders)}
+          {numInside && fmt.num(orders)}
         </div>
       </div>
-      <div className={cn("w-44 text-right text-[10px] font-medium flex-shrink-0", LABEL_TONE[tone])}>
-        {pctLabel}
-      </div>
+
+      {/* Number as a flex sibling — always visible, never clipped */}
+      {!numInside && (
+        <span className={cn("flex-shrink-0 text-[11px] font-semibold whitespace-nowrap", LABEL_TONE[tone])}>
+          {fmt.num(orders)}
+        </span>
+      )}
     </div>
   );
 }

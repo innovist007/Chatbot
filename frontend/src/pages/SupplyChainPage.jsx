@@ -19,7 +19,7 @@ import { SCTrendChart } from "@/components/supplychain/SCTrendChart";
 import { useSupplyChain } from "@/hooks/useSupplyChain";
 import { fmt, cn } from "@/lib/utils";
 
-export default function SupplyChainPage({ startDate, endDate, compareMode, onAskChat }) {
+export default function SupplyChainPage({ startDate, endDate, compareStart, compareEnd, onAskChat, hasComparison }) {
   const {
     overview, warehouseTable, courierTable, paymentTable,
     matrix, pincodes, trend, subOptions,
@@ -29,7 +29,8 @@ export default function SupplyChainPage({ startDate, endDate, compareMode, onAsk
     segment,     setSegment,
     metric,      setMetric,
     subFilter,   setSubFilter,
-  } = useSupplyChain({ startDate, endDate, compareMode });
+  } = useSupplyChain({ startDate, endDate, compareStart, compareEnd });
+  const delta = hasComparison ? (v) => v : () => null;
 
   const cur = overview?.overview?.current || {};
   const dl = overview?.overview?.deltas || {};
@@ -39,10 +40,10 @@ export default function SupplyChainPage({ startDate, endDate, compareMode, onAsk
 
   // RAG strip items derived from KPIs
   const ragItems = [
-    { label: "Delivered revenue",       value: fmt.inr(cur.delivered_revenue), tone: "green", sub: dl.delivered_revenue != null ? `${fmt.delta(dl.delivered_revenue)} ${compareMode}` : null },
-    { label: "RTO rate",                value: fmt.pct(cur.rto_pct), tone: ragTone(cur.rto_pct, 0.10, 0.15, true), sub: dl.rto_pct != null ? `${signedPP(dl.rto_pct)} ${compareMode} · target ≤10%` : null },
-    { label: "NDR rate",                value: fmt.pct(cur.ndr_pct), tone: ragTone(cur.ndr_pct, 0.15, 0.20, true), sub: dl.ndr_pct != null ? `${signedPP(dl.ndr_pct)} ${compareMode}` : null },
-    { label: "% orders in ETA (D0–D3)", value: fmt.pct(cur.in_eta_pct), tone: ragTone(cur.in_eta_pct, 0.80, 0.70, false), sub: dl.in_eta_pct != null ? `${signedPP(dl.in_eta_pct)} ${compareMode}` : null },
+    { label: "Delivered revenue",       value: fmt.inr(cur.delivered_revenue), tone: "green", sub: dl.delivered_revenue != null ? `${fmt.delta(dl.delivered_revenue)} vs prior` : null },
+    { label: "RTO rate",                value: fmt.pct(cur.rto_pct), tone: ragTone(cur.rto_pct, 0.10, 0.15, true), sub: dl.rto_pct != null ? `${signedPP(dl.rto_pct)} · target ≤10%` : null },
+    { label: "NDR rate",                value: fmt.pct(cur.ndr_pct), tone: ragTone(cur.ndr_pct, 0.15, 0.20, true), sub: dl.ndr_pct != null ? `${signedPP(dl.ndr_pct)} vs prior` : null },
+    { label: "% orders in ETA (D0–D3)", value: fmt.pct(cur.in_eta_pct), tone: ragTone(cur.in_eta_pct, 0.80, 0.70, false), sub: dl.in_eta_pct != null ? `${signedPP(dl.in_eta_pct)} vs prior` : null },
   ];
 
   const tatItems = [
@@ -50,7 +51,7 @@ export default function SupplyChainPage({ startDate, endDate, compareMode, onAsk
     { tone: "blue",  label: "Dispatch → Pickup",   value: `${(cur.dispatch_to_pickup_days || 0).toFixed(2)} d`,   sub: "transit start" },
     { tone: "green", label: "Pickup → Delivery",   value: `${(cur.pickup_to_delivery_days || 0).toFixed(2)} d`,   sub: "transit TAT avg" },
     { tone: "red",   label: "RTO TAT",             value: `${(cur.rto_tat_days || 0).toFixed(1)} d`,              sub: "order → return" },
-    { tone: "gray",  label: "1st-attempt deliv %", value: fmt.pct(cur.first_attempt_delivered_pct), sub: dl.first_attempt_delivered_pct != null ? `${signedPP(dl.first_attempt_delivered_pct)} ${compareMode}` : null },
+    { tone: "gray",  label: "1st-attempt deliv %", value: fmt.pct(cur.first_attempt_delivered_pct), sub: dl.first_attempt_delivered_pct != null ? `${signedPP(dl.first_attempt_delivered_pct)} vs prior` : null },
     { tone: "gray",  label: "Re-attempt success",  value: fmt.pct(ndrFunnel?.reattempt_success_rate), sub: "of NDR re-attempts" },
   ];
 
@@ -71,7 +72,7 @@ export default function SupplyChainPage({ startDate, endDate, compareMode, onAsk
 
   if (initialLoading && !overview) {
     return (
-      <div className="space-y-4 p-6">
+      <div className="space-y-4 px-3 py-4 sm:px-6 sm:py-6">
         {/* AI flash skeleton */}
         <div className="skeleton h-24 rounded-lg" />
 
@@ -111,7 +112,7 @@ export default function SupplyChainPage({ startDate, endDate, compareMode, onAsk
   }
 
   return (
-    <div className="space-y-4 p-6">
+    <div className="space-y-4 px-3 py-4 sm:px-6 sm:py-6">
 
       {/* AI Flash */}
       <AIFlash
@@ -127,16 +128,16 @@ export default function SupplyChainPage({ startDate, endDate, compareMode, onAsk
       </LoadingOverlay>
 
       {/* Key metrics KPI grid */}
-      <SectionHeader title="Key metrics" subtitle={`current · vs ${compareMode}`} tone="purple" />
+      <SectionHeader title="Key metrics" subtitle="current · vs comparison period" tone="purple" />
       <LoadingOverlay loading={loading}>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
-          <KpiCard label="Total orders"           value={fmt.num(cur.total_orders)}      delta={dl.total_orders}      compareLabel={compareMode} />
-          <KpiCard label="Delivered orders"      value={fmt.num(cur.delivered_orders)}  delta={dl.delivered_orders}  compareLabel={compareMode} />
-          <KpiCard label="Delivered revenue"     value={fmt.inr(cur.delivered_revenue)} delta={dl.delivered_revenue} compareLabel={compareMode} />
-          <KpiCard label="RTO %"                 value={fmt.pct(cur.rto_pct)}           delta={dl.rto_pct}           compareLabel={compareMode} />
-          <KpiCard label="NDR rate"              value={fmt.pct(cur.ndr_pct)}           delta={dl.ndr_pct}           compareLabel={compareMode} />
+          <KpiCard label="Total orders"           value={fmt.num(cur.total_orders)}      delta={delta(dl.total_orders)} />
+          <KpiCard label="Delivered orders"      value={fmt.num(cur.delivered_orders)}  delta={delta(dl.delivered_orders)} />
+          <KpiCard label="Delivered revenue"     value={fmt.inr(cur.delivered_revenue)} delta={delta(dl.delivered_revenue)} />
+          <KpiCard label="RTO %"                 value={fmt.pct(cur.rto_pct)}           delta={delta(dl.rto_pct)} />
+          <KpiCard label="NDR rate"              value={fmt.pct(cur.ndr_pct)}           delta={delta(dl.ndr_pct)} />
           <KpiCard label="Stuck (in-transit >7d)" value={fmt.num(cur.stuck_orders)} />
-          <KpiCard label="In ETA (D0–D3)"        value={fmt.pct(cur.in_eta_pct)}        delta={dl.in_eta_pct}        compareLabel={compareMode} />
+          <KpiCard label="In ETA (D0–D3)"        value={fmt.pct(cur.in_eta_pct)}        delta={delta(dl.in_eta_pct)} />
         </div>
       </LoadingOverlay>
 
@@ -185,9 +186,9 @@ export default function SupplyChainPage({ startDate, endDate, compareMode, onAsk
       </Card>
 
       {/* Warehouse table */}
-      <SectionHeader title="Warehouse performance" subtitle={`vs ${compareMode} · target RTO ≤10%`} tone="purple" />
+      <SectionHeader title="Warehouse performance" subtitle="vs comparison period · target RTO ≤10%" tone="purple" />
       <LoadingOverlay loading={loading}>
-        <Card className="overflow-hidden">
+        <Card className="overflow-x-auto">
           <SegmentTable rows={warehouseTable} variant="warehouse" />
         </Card>
       </LoadingOverlay>
@@ -195,7 +196,7 @@ export default function SupplyChainPage({ startDate, endDate, compareMode, onAsk
       {/* Payment table */}
       <SectionHeader title="Payment mode performance" subtitle="COD vs Prepaid" tone="amber" />
       <LoadingOverlay loading={loading}>
-        <Card className="overflow-hidden">
+        <Card className="overflow-x-auto">
           <SegmentTable rows={paymentTable} variant="payment" />
         </Card>
       </LoadingOverlay>
@@ -203,7 +204,7 @@ export default function SupplyChainPage({ startDate, endDate, compareMode, onAsk
       {/* Courier table */}
       <SectionHeader title="Courier partner performance" tone="green" />
       <LoadingOverlay loading={loading}>
-        <Card className="overflow-hidden">
+        <Card className="overflow-x-auto">
           <SegmentTable rows={courierTable} variant="courier" />
         </Card>
       </LoadingOverlay>
@@ -219,7 +220,7 @@ export default function SupplyChainPage({ startDate, endDate, compareMode, onAsk
       {/* Top pincodes */}
       <SectionHeader title="Top pincodes by RTO volume" subtitle="Block / Flag / Monitor pending threshold spec" tone="amber" />
       <LoadingOverlay loading={loading}>
-        <Card className="overflow-hidden">
+        <Card className="overflow-x-auto">
           <DataTable
             getRowKey={(r) => r.pincode}
             columns={[

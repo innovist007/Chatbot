@@ -73,7 +73,7 @@ export default function LoginPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || "Invalid code");
 
-      login(data.access_token, data.user);
+      await login(data.access_token, data.user);
       navigate(from, { replace: true });
     } catch (err) {
       console.error("OTP verify error:", err);

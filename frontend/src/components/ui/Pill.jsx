@@ -6,6 +6,9 @@ const tones = {
   amber:   "bg-warning-light text-warning border-warning/20",
   red:     "bg-danger-light text-danger border-danger/20",
   accent:  "bg-accent-light text-accent border-accent/20",
+  // Acquisition palette aliases
+  purple:  "bg-purple-50 text-purple-700 border-purple-200",
+  blue:    "bg-blue-50 text-blue-700 border-blue-200",
   // Supply Chain palette
   "sc-green":  "bg-sc-green-light text-sc-green border-sc-green-mid/40",
   "sc-amber":  "bg-sc-amber-light text-sc-amber border-sc-amber-mid/40",

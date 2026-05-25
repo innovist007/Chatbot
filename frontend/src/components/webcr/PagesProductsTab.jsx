@@ -62,12 +62,12 @@ function ContentGroupChart({ rows }) {
     }))
     .sort((a, b) => b.cr - a.cr);
   return (
-    <ResponsiveContainer width="100%" height={240}>
-      <BarChart data={data} margin={{ top: 18, right: 16, left: 0, bottom: 0 }}>
+    <ResponsiveContainer width="100%" height={290}>
+      <BarChart data={data} margin={{ top: 18, right: 16, left: 0, bottom: 55 }}>
         <CartesianGrid stroke="#e5e5e5" vertical={false} />
         <XAxis
           dataKey="name"
-          tick={{ fontSize: 11, fill: "#737373" }}
+          tick={{ fontSize: 10, fill: "#737373", angle: -40, textAnchor: "end", dy: 6 }}
           stroke="#d4d4d4"
           tickLine={false}
           interval={0}

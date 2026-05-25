@@ -39,16 +39,20 @@ SOURCE_LABELS: dict[str, str] = {
 
 @dataclass
 class PartnershipFilters:
-    start_date:   date
-    end_date:     date
-    sources:      list[str] | None = None   # e.g. ["gpay", "phonepe"]
-    compare_mode: str = "MoM"               # DoD | WoW | MoM
+    start_date:    date
+    end_date:      date
+    sources:       list[str] | None = None
+    compare_mode:  str = "MoM"
+    compare_start: date | None = None
+    compare_end:   date | None = None
 
     @property
     def length_days(self) -> int:
         return (self.end_date - self.start_date).days + 1
 
     def previous_period(self) -> "PartnershipFilters":
+        if self.compare_start and self.compare_end:
+            return replace(self, start_date=self.compare_start, end_date=self.compare_end)
         days = self.length_days
         if self.compare_mode == "DoD":
             prev_end   = self.start_date - timedelta(days=1)
@@ -56,7 +60,7 @@ class PartnershipFilters:
         elif self.compare_mode == "WoW":
             prev_start = self.start_date - timedelta(days=7)
             prev_end   = self.end_date   - timedelta(days=7)
-        else:  # MoM default
+        else:
             prev_start = self.start_date - timedelta(days=30)
             prev_end   = self.end_date   - timedelta(days=30)
         return replace(self, start_date=prev_start, end_date=prev_end)
@@ -66,7 +70,8 @@ class PartnershipFilters:
             prefix,
             self.start_date.isoformat(),
             self.end_date.isoformat(),
-            self.compare_mode,
+            (self.compare_start.isoformat() if self.compare_start else self.compare_mode),
+            (self.compare_end.isoformat() if self.compare_end else ""),
             ",".join(sorted(self.sources or [])),
         ]
         key_hash = hashlib.md5("|".join(parts).encode()).hexdigest()[:12]

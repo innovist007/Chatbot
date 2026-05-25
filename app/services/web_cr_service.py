@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 class WebCRFilters:
     start_date: date
     end_date: date
+    compare_mode: str = "MoM"
+    compare_start: date | None = None
+    compare_end: date | None = None
     channel_groups: list[str] | None = None
     devices: list[str] | None = None
     countries: list[str] | None = None
@@ -40,10 +43,21 @@ class WebCRFilters:
         return (self.end_date - self.start_date).days + 1
 
     def previous_period(self) -> "WebCRFilters":
+        if self.compare_start and self.compare_end:
+            return replace(self, start_date=self.compare_start, end_date=self.compare_end)
         n = self.length_days
+        m = self.compare_mode
+        if m == "DoD":
+            shift = n
+        elif m == "WoW":
+            shift = 7
+        elif m == "YoY":
+            shift = 365
+        else:
+            shift = 30
         return replace(self,
-                       start_date=self.start_date - timedelta(days=n),
-                       end_date=self.end_date - timedelta(days=n))
+                       start_date=self.start_date - timedelta(days=shift),
+                       end_date=self.end_date   - timedelta(days=shift))
 
     def cache_key(self, prefix: str) -> str:
         """Generate deterministic cache key from filter values."""
@@ -51,6 +65,8 @@ class WebCRFilters:
             prefix,
             self.start_date.isoformat(),
             self.end_date.isoformat(),
+            (self.compare_start.isoformat() if self.compare_start else ""),
+            (self.compare_end.isoformat() if self.compare_end else ""),
             ",".join(sorted(self.channel_groups or [])),
             ",".join(sorted(self.devices or [])),
             ",".join(sorted(self.countries or [])),
@@ -127,8 +143,10 @@ class WebCRService:
             return date.fromisoformat(cached) if isinstance(cached, str) else cached
         
         sql = f"""
-        SELECT MAX(date) AS latest_date
-        FROM {self.table}
+        SELECT date AS latest_date
+        FROM {self.table} GROUP BY date
+ORDER BY date DESC
+LIMIT 1 OFFSET 1
         """
         
         rows = self._run(sql, [])
@@ -692,6 +710,7 @@ class WebCRService:
         """
         rows = self._run(sql, params)
         result = [r["landing_page"] for r in rows]
+        logger.info("top_landing_pages found %d pages: %s", len(result), result[:5])
         self._set_cache(cache_key, result, ttl=3600)
         return result
 
@@ -839,6 +858,178 @@ class WebCRService:
 
         out_rows = [pivot[d] for d in sorted(pivot.keys())]
         result = {"channels": top, "rows": out_rows}
+        self._set_cache(cache_key, result, ttl=3600)
+        return result
+
+    # ========================================================= funnel trend (daily)
+
+    def _funnel_row(self, r: dict) -> dict:
+        """Convert raw aggregated row → rates dict."""
+        s = r.get("sessions") or 0
+        atc = r.get("add_to_cart") or 0
+        vc  = r.get("view_cart")   or 0
+        bc  = r.get("begin_checkout") or 0
+        sh  = r.get("add_shipping_info") or 0
+        py  = r.get("add_payment_info")  or 0
+        pu  = r.get("purchases") or 0
+        return {
+            "sessions":   s,
+            "atc":        atc,
+            "view_cart":  vc,
+            "checkout":   bc,
+            "shipping":   sh,
+            "payment":    py,
+            "purchase":   pu,
+            # step rates — each as % of sessions for consistent comparison
+            "atc_rate":      atc / s if s else 0,
+            "view_cart_rate": vc / s if s else 0,
+            "checkout_rate":  bc / s if s else 0,
+            "shipping_rate":  sh / s if s else 0,
+            "payment_rate":   py / s if s else 0,
+            "purchase_rate":  pu / s if s else 0,
+        }
+
+    def funnel_trend(self, f: WebCRFilters) -> list[dict[str, Any]]:
+        """Daily funnel step rates — sessions + each step as % of sessions."""
+        cache_key = f.cache_key("funnel_trend_v1")
+        cached = self._get_cache(cache_key)
+        if cached is not None:
+            return cached
+
+        where, params = self._where(f)
+        sql = f"""
+        SELECT
+            date,
+            SUM(sessions)          AS sessions,
+            SUM(add_to_cart)       AS add_to_cart,
+            SUM(view_cart)         AS view_cart,
+            SUM(begin_checkout)    AS begin_checkout,
+            SUM(add_shipping_info) AS add_shipping_info,
+            SUM(add_payment_info)  AS add_payment_info,
+            SUM(purchases)         AS purchases
+        FROM {self.table}
+        WHERE {where}
+        GROUP BY date
+        ORDER BY date
+        """
+        rows = self._run(sql, params)
+        result = [{"date": r["date"], **self._funnel_row(r)} for r in rows]
+        self._set_cache(cache_key, result, ttl=3600)
+        return result
+
+    def _build_segmented_funnel_trend(
+        self,
+        rows: list[dict],
+        key_field: str,
+        segments: list[str],
+    ) -> dict[str, Any]:
+        """
+        Common helper: given raw rows with a segment key field,
+        return {names: [...], series: {name: [{date, sessions, atc_rate, ...}]}}
+        """
+        # group raw rows by segment → date order
+        by_seg: dict[str, list[dict]] = {s: [] for s in segments}
+        for r in sorted(rows, key=lambda x: x["date"]):
+            seg = r.get(key_field)
+            if seg in by_seg:
+                by_seg[seg].append({"date": r["date"], **self._funnel_row(r)})
+        return {"names": segments, "series": by_seg}
+
+    def channel_funnel_trend(self, f: WebCRFilters, top_n: int = 5) -> dict[str, Any]:
+        """Daily funnel steps per top-N channel.
+        Returns {names: [...], series: {channel: [{date, sessions, atc_rate, ...}]}}
+        """
+        cache_key = f.cache_key(f"channel_funnel_trend_v2_top{top_n}")
+        cached = self._get_cache(cache_key)
+        if cached is not None:
+            return cached
+
+        top = self.top_channels(f)[:top_n]
+        if not top:
+            result = {"names": [], "series": {}}
+            self._set_cache(cache_key, result, ttl=3600)
+            return result
+
+        where, params = self._where(f)
+        params = params + [bigquery.ArrayQueryParameter("top_channels", "STRING", top)]
+        sql = f"""
+        SELECT
+            date,
+            COALESCE(channel_group, '(unknown)') AS channel,
+            SUM(sessions)          AS sessions,
+            SUM(add_to_cart)       AS add_to_cart,
+            SUM(view_cart)         AS view_cart,
+            SUM(begin_checkout)    AS begin_checkout,
+            SUM(add_shipping_info) AS add_shipping_info,
+            SUM(add_payment_info)  AS add_payment_info,
+            SUM(purchases)         AS purchases
+        FROM {self.table}
+        WHERE {where}
+          AND channel_group IN UNNEST(@top_channels)
+        GROUP BY date, channel
+        ORDER BY date, channel
+        """
+        rows = self._run(sql, params)
+        result = self._build_segmented_funnel_trend(rows, "channel", top)
+        self._set_cache(cache_key, result, ttl=3600)
+        return result
+
+    def landing_page_funnel_trend(self, f: WebCRFilters, top_n: int = 10) -> dict[str, Any]:
+        """Daily funnel steps per top-N landing page.
+        Returns {names: [...], series: {page: [{date, sessions, atc_rate, ...}]}}
+        """
+        cache_key = f.cache_key(f"lp_funnel_trend_v2_top{top_n}")
+        cached = self._get_cache(cache_key)
+        if cached is not None:
+            return cached
+
+        top_pages = self.top_landing_pages(f)[:top_n]
+        if not top_pages:
+            result = {"names": [], "series": {}}
+            self._set_cache(cache_key, result, ttl=3600)
+            return result
+
+        where, params = self._where(f)
+
+        # Separate real page paths from the null-placeholder so IN UNNEST works
+        NULL_LABEL = "(unknown)"
+        real_pages = [p for p in top_pages if p != NULL_LABEL]
+        has_unknown = NULL_LABEL in top_pages
+
+        if real_pages:
+            params = params + [bigquery.ArrayQueryParameter("top_pages", "STRING", real_pages)]
+            lp_filter = (
+                "COALESCE(landing_page, '(unknown)') IN UNNEST(@top_pages)"
+                if not has_unknown
+                else (
+                    "(landing_page IN UNNEST(@top_pages)"
+                    " OR landing_page IS NULL)"
+                )
+            )
+        else:
+            # Only null-traffic in top list
+            lp_filter = "landing_page IS NULL"
+
+        sql = f"""
+        SELECT
+            date,
+            COALESCE(landing_page, '{NULL_LABEL}') AS landing_page,
+            SUM(sessions)          AS sessions,
+            SUM(add_to_cart)       AS add_to_cart,
+            SUM(view_cart)         AS view_cart,
+            SUM(begin_checkout)    AS begin_checkout,
+            SUM(add_shipping_info) AS add_shipping_info,
+            SUM(add_payment_info)  AS add_payment_info,
+            SUM(purchases)         AS purchases
+        FROM {self.table}
+        WHERE {where}
+          AND ({lp_filter})
+        GROUP BY date, landing_page
+        ORDER BY date, landing_page
+        """
+        rows = self._run(sql, params)
+        logger.info("landing_page_funnel_trend: %d rows returned for %d pages", len(rows), len(top_pages))
+        result = self._build_segmented_funnel_trend(rows, "landing_page", top_pages)
         self._set_cache(cache_key, result, ttl=3600)
         return result
 

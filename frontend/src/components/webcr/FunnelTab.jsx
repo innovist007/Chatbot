@@ -15,6 +15,7 @@ import { Segmented } from "@/components/ui/Segmented";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { Pill } from "@/components/ui/Pill";
 import { fmt } from "@/lib/utils";
+import { FunnelTrendChart, SegmentedFunnelChart } from "./FunnelTrendChart";
 
 const STEP_COLORS = [
   "#185FA5",
@@ -717,6 +718,11 @@ export function FunnelTab({ data, initialLoading, loading, filters, setters, fil
   const topChannels = data?.top_channels || [];
   const topContentGroups = data?.top_content_groups || [];
 
+  // New: daily funnel trend data
+  const funnelTrend = data?.funnel_trend || [];
+  const channelFunnelTrend = data?.channel_funnel_trend || { channels: [], rows: [] };
+  const lpFunnelTrend = data?.landing_page_funnel_trend || { pages: [], rows: [] };
+
   const activeChannel = filters?.channel || null;
 
   const baseSessions = funnel[0]?.count || 0;
@@ -783,22 +789,70 @@ export function FunnelTab({ data, initialLoading, loading, filters, setters, fil
         </div>
       </div>
 
+      {/* ── Daily overall funnel trend ── */}
       <div className="space-y-2">
         <SectionHeader
-          title="Step-wise CR by channel — ATC · Checkout · Purchase"
-          subtitle={activeChannel ? `Highlighting ${activeChannel}` : "Grouped comparison across traffic sources"}
+          title="Daily funnel — Sessions → Purchase"
+          subtitle="Each line = that step as % of sessions · click legend to show/hide"
           tone="blue"
         />
         <Card>
-          <CardHeader>
-            <CardTitle>Channel funnel comparison</CardTitle>
-          </CardHeader>
           <CardBody>
             {initialLoading ? (
               <div className="skeleton h-64" />
             ) : (
               <LoadingOverlay loading={loading}>
-                <ChannelFunnelChart rows={byChannel} activeChannel={activeChannel} />
+                <FunnelTrendChart rows={funnelTrend} height={260} />
+              </LoadingOverlay>
+            )}
+          </CardBody>
+        </Card>
+      </div>
+
+      {/* ── Top 5 channels daily funnel ── */}
+      <div className="space-y-2">
+        <SectionHeader
+          title="Daily funnel by channel — top 5 sources"
+          subtitle="Pick a channel · shows sessions + all funnel steps for that source"
+          tone="purple"
+        />
+        <Card>
+          <CardBody>
+            {initialLoading ? (
+              <div className="skeleton h-64" />
+            ) : (
+              <LoadingOverlay loading={loading}>
+                <SegmentedFunnelChart
+                  data={channelFunnelTrend}
+                  height={260}
+                />
+              </LoadingOverlay>
+            )}
+          </CardBody>
+        </Card>
+      </div>
+
+      {/* ── Top 10 landing pages daily funnel ── */}
+      <div className="space-y-2">
+        <SectionHeader
+          title="Daily funnel by landing page — top 10 pages"
+          subtitle="Pick a landing page · shows sessions + all funnel steps for that page"
+          tone="green"
+        />
+        <Card>
+          <CardBody>
+            {initialLoading ? (
+              <div className="skeleton h-64" />
+            ) : (
+              <LoadingOverlay loading={loading}>
+                <SegmentedFunnelChart
+                  data={lpFunnelTrend}
+                  height={260}
+                  labelFormatter={(p) => {
+                    const path = p.replace(/^https?:\/\/[^/]+/, "");
+                    return path || p;
+                  }}
+                />
               </LoadingOverlay>
             )}
           </CardBody>

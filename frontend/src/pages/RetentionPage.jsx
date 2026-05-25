@@ -88,13 +88,14 @@ function DaysToOrderChart({ data }) {
   );
 }
 
-export default function RetentionPage({ onAskChat, startDate, endDate, compareMode }) {
+export default function RetentionPage({ onAskChat, startDate, endDate, compareStart, compareEnd, hasComparison }) {
   const {
     data, loading, error,
     aiSummary,
     brand,           setBrand,
     retentionWindow, setRetentionWindow,
-  } = useRetention({ startDate, endDate, compareMode });
+  } = useRetention({ startDate, endDate, compareStart, compareEnd });
+  const delta = hasComparison ? (v) => v : () => null;
 
   // if (error) {
   //   return (
@@ -159,39 +160,39 @@ export default function RetentionPage({ onAskChat, startDate, endDate, compareMo
               <KpiCard
                 label="Repeat rate"
                 value={fmt.pct(current.repeat_rate)}
-                delta={deltas.repeat_rate}
+                delta={delta(deltas.repeat_rate)}
                 format="pct"
                 deltaFormat="pp"
-                compareLabel={compareMode}
+
                 insight={generateKpiInsight("Repeat rate", deltas.repeat_rate)}
                 onAsk={() => onAskChat?.(`Why did repeat rate change in ${retentionWindow}?`)}
               />
               <KpiCard
                 label="Same-product"
                 value={fmt.pct(current.same_product_rate)}
-                delta={deltas.same_product_rate}
+                delta={delta(deltas.same_product_rate)}
                 format="pct"
                 deltaFormat="pp"
-                compareLabel={compareMode}
+
                 insight={generateKpiInsight("Same-product", deltas.same_product_rate)}
                 onAsk={() => onAskChat?.("Which products have highest repeat rate?")}
               />
               <KpiCard
                 label="Cross-product"
                 value={fmt.pct(current.cross_product_rate)}
-                delta={deltas.cross_product_rate}
+                delta={delta(deltas.cross_product_rate)}
                 format="pct"
                 deltaFormat="pp"
-                compareLabel={compareMode}
+
                 insight={generateKpiInsight("Cross-product", deltas.cross_product_rate)}
                 onAsk={() => onAskChat?.("Top cross-sell opportunities?")}
               />
               <KpiCard
                 label="Orders / repeater"
                 value={current.orders_per_repeater?.toFixed(1)}
-                delta={deltas.orders_per_repeater}
+                delta={delta(deltas.orders_per_repeater)}
                 format="num"
-                compareLabel={compareMode}
+
                 insight={`Avg ${current.orders_per_repeater?.toFixed(1)} orders per returning customer`}
                 onAsk={() => onAskChat?.("How to increase orders per repeater?")}
               />
@@ -211,19 +212,19 @@ export default function RetentionPage({ onAskChat, startDate, endDate, compareMo
               <KpiCard
                 label="Repeat revenue"
                 value={fmt.inr(revenue.repeat_revenue)}
-                delta={revenue.repeat_revenue_delta}
+                delta={delta(revenue.repeat_revenue_delta)}
                 format="curr"
-                compareLabel={compareMode}
+
                 insight={generateKpiInsight("Repeat revenue", revenue.repeat_revenue_delta)}
                 onAsk={() => onAskChat?.("Why is repeat revenue changing?")}
               />
               <KpiCard
                 label="Repeat share"
                 value={fmt.pct(revenue.repeat_share)}
-                delta={revenue.repeat_share_delta}
+                delta={delta(revenue.repeat_share_delta)}
                 format="pct"
                 deltaFormat="pp"
-                compareLabel={compareMode}
+
                 insight={generateKpiInsight("Repeat share", revenue.repeat_share_delta)}
                 onAsk={() => onAskChat?.("How to increase repeat share?")}
               />
@@ -232,7 +233,7 @@ export default function RetentionPage({ onAskChat, startDate, endDate, compareMo
                 value={fmt.inr(revenue.ltv_90d)}
                 delta={revenue.ltv_90d_delta}
                 format="curr"
-                compareLabel={compareMode}
+
                 insight={generateKpiInsight("90d LTV", revenue.ltv_90d_delta)}
                 onAsk={() => onAskChat?.("How to increase customer LTV?")}
               />
@@ -240,7 +241,6 @@ export default function RetentionPage({ onAskChat, startDate, endDate, compareMo
                 label="Repeat AOV uplift"
                 value={`+${fmt.pct(revenue.repeat_aov_uplift)}`}
                 format="pct"
-                compareLabel={"vs first-order"}
                 insight={`Repeat customers spend ${fmt.pct(revenue.repeat_aov_uplift)} more than first-time buyers`}
                 onAsk={() => onAskChat?.("Why do repeat customers spend more?")}
               />

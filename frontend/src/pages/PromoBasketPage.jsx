@@ -23,12 +23,13 @@ function generateKpiInsight(metricName, delta) {
   return insights[metricName] || `${metricName} changed ${mag}%.`;
 }
 
-export default function PromoBasketPage({ onAskChat, startDate, endDate, compareMode }) {
+export default function PromoBasketPage({ onAskChat, startDate, endDate, compareStart, compareEnd, hasComparison }) {
   const {
     data, loading, error,
     aiSummary,
     offerType, setOfferType,
-  } = usePromoBasket({ startDate, endDate, compareMode });
+  } = usePromoBasket({ startDate, endDate, compareStart, compareEnd });
+  const delta = hasComparison ? (v) => v : () => null;
 
 //   if (error) {
 //     return (
@@ -68,38 +69,38 @@ export default function PromoBasketPage({ onAskChat, startDate, endDate, compare
               <KpiCard
                 label="AOV"
                 value={fmt.inr(current.aov)}
-                delta={deltas.aov}
+                delta={delta(deltas.aov)}
                 format="curr"
-                compareLabel={compareMode}
+
                 insight={generateKpiInsight("AOV", deltas.aov)}
                 onAsk={() => onAskChat?.("Why did AOV change?")}
               />
               <KpiCard
                 label="Items / order"
                 value={current.items_per_order?.toFixed(1)}
-                delta={deltas.items_per_order}
+                delta={delta(deltas.items_per_order)}
                 format="num"
-                compareLabel={compareMode}
+
                 insight={generateKpiInsight("Items / order", deltas.items_per_order)}
                 onAsk={() => onAskChat?.("How to increase items per order?")}
               />
               <KpiCard
                 label="Coupon usage"
                 value={fmt.pct(current.coupon_usage)}
-                delta={deltas.coupon_usage}
+                delta={delta(deltas.coupon_usage)}
                 format="pct"
                 deltaFormat="pp"
-                compareLabel={compareMode}
+
                 insight={generateKpiInsight("Coupon usage", deltas.coupon_usage)}
                 onAsk={() => onAskChat?.("Which coupons drive most orders?")}
               />
               <KpiCard
                 label="Discount depth"
                 value={fmt.pct(current.discount_depth)}
-                delta={deltas.discount_depth}
+                delta={delta(deltas.discount_depth)}
                 format="pct"
                 deltaFormat="pp"
-                compareLabel={compareMode}
+
                 insight={generateKpiInsight("Discount depth", deltas.discount_depth)}
                 onAsk={() => onAskChat?.("How to reduce discount depth?")}
               />
@@ -115,39 +116,38 @@ export default function PromoBasketPage({ onAskChat, startDate, endDate, compare
             <KpiCard
               label="Cart abandonment"
               value={fmt.pct(current.cart_abandonment)}
-              delta={deltas.cart_abandonment}
+              delta={delta(deltas.cart_abandonment)}
               format="pct"
               deltaFormat="pp"
-              compareLabel={compareMode}
+
               insight={generateKpiInsight("Cart abandonment", deltas.cart_abandonment)}
               onAsk={() => onAskChat?.("Why are carts being abandoned?")}
             />
             <KpiCard
               label="Recovered carts"
               value={fmt.num(current.recovered_carts)}
-              delta={deltas.recovered_carts}
+              delta={delta(deltas.recovered_carts)}
               format="num"
-              compareLabel={compareMode}
+
               insight={`${fmt.pct(current.recovery_via_push)} via push notifications`}
               onAsk={() => onAskChat?.("How to recover more carts?")}
             />
             <KpiCard
               label="Bundle attach"
               value={fmt.pct(current.bundle_attach)}
-              delta={deltas.bundle_attach}
+              delta={delta(deltas.bundle_attach)}
               format="pct"
               deltaFormat="pp"
-              compareLabel={compareMode}
+
               insight={generateKpiInsight("Bundle attach", deltas.bundle_attach)}
               onAsk={() => onAskChat?.("How to increase bundle attach?")}
             />
             <KpiCard
               label="BOGO orders"
               value={fmt.num(current.bogo_orders)}
-              delta={deltas.bogo_orders}
+              delta={delta(deltas.bogo_orders)}
               format="num"
-              compareLabel={compareMode}
-              insight={`${deltas.bogo_orders > 0 ? '+' : ''}${((deltas.bogo_orders || 0) * 100).toFixed(0)}% vs ${compareMode}`}
+              insight={`${deltas.bogo_orders > 0 ? '+' : ''}${((deltas.bogo_orders || 0) * 100).toFixed(0)}% vs prior period`}
               onAsk={() => onAskChat?.("Are BOGO offers profitable?")}
             />
           </>

@@ -231,7 +231,7 @@ export function ChatPanel({ open, onClose, deepLinkQuery, width = 500, onWidthCh
           isDragging && "transition-none",
           open ? "translate-x-0" : "translate-x-full"
         )}
-        style={{ width: isFullscreen ? "100vw" : width }}
+        style={{ width: isFullscreen ? "100vw" : width, maxWidth: "100vw" }}
       >
         {/* Header */}
         <header className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">

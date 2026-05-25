@@ -23,10 +23,11 @@ function KpiSkeleton() {
   );
 }
 
-export function WebCrKpiHeader({ data, initialLoading, loading, compareMode, onAskChat }) {
+export function WebCrKpiHeader({ data, initialLoading, loading, onAskChat, hasComparison }) {
   const o = data?.overview;
   const c = o?.current ?? {};
-  const d = o?.deltas ?? {};
+  const raw = o?.deltas ?? {};
+  const d = hasComparison ? raw : {};
 
   const sessionsPerDay = c.daily_avg_sessions;
   const ordersPerDay = c.daily_avg_purchases;
@@ -34,7 +35,7 @@ export function WebCrKpiHeader({ data, initialLoading, loading, compareMode, onA
 
   return (
     <div className="space-y-4">
-      <SectionHeader title="Key metrics" subtitle={`vs ${compareMode}`} tone="blue" />
+      <SectionHeader title="Key metrics" subtitle="vs comparison period" tone="blue" />
 
       {initialLoading ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -47,35 +48,35 @@ export function WebCrKpiHeader({ data, initialLoading, loading, compareMode, onA
               label="Website sessions"
               value={fmt.num(c.sessions)}
               delta={d.sessions}
-              compareLabel={compareMode}
+
               onAsk={() => onAskChat?.("Why did website sessions change?")}
             />
             <KpiCard
               label="Conversion rate (CR)"
               value={fmt.pct(c.cr, 2)}
               delta={d.cr}
-              compareLabel={compareMode}
+
               onAsk={() => onAskChat?.("Why did CR change?")}
             />
             <KpiCard
               label="Add-to-cart rate"
               value={fmt.pct(c.atc_rate, 1)}
               delta={d.atc_rate}
-              compareLabel={compareMode}
+
               onAsk={() => onAskChat?.("Why did ATC rate change?")}
             />
             <KpiCard
               label="Checkout CR"
               value={fmt.pct(c.checkout_cr, 1)}
               delta={d.checkout_cr}
-              compareLabel={compareMode}
+
               onAsk={() => onAskChat?.("Why did checkout CR change?")}
             />
             <KpiCard
               label="Revenue / session"
               value={fmt.inr(c.revenue_per_session)}
               delta={d.revenue_per_session}
-              compareLabel={compareMode}
+
               onAsk={() => onAskChat?.("Why did revenue per session change?")}
             />
           </div>
@@ -111,7 +112,7 @@ export function WebCrKpiHeader({ data, initialLoading, loading, compareMode, onA
               label="AOV"
               value={fmt.inr(c.aov)}
               delta={d.aov}
-              compareLabel={compareMode}
+
               onAsk={() => onAskChat?.("Why did AOV change?")}
             />
 
@@ -125,7 +126,7 @@ export function WebCrKpiHeader({ data, initialLoading, loading, compareMode, onA
               label="Avg session duration"
               value={formatDuration(c.avg_session_duration)}
               delta={d.avg_session_duration}
-              compareLabel={compareMode}
+
               onAsk={() => onAskChat?.("Why did avg session duration change?")}
             />
 
@@ -133,7 +134,7 @@ export function WebCrKpiHeader({ data, initialLoading, loading, compareMode, onA
               label="Returning visitor %"
               value={fmt.pct(c.returning_visitor_pct, 1)}
               delta={d.returning_visitor_pct}
-              compareLabel={compareMode}
+
               onAsk={() => onAskChat?.("Why did returning visitor share change?")}
             />
           </div>

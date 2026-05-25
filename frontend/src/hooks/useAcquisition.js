@@ -2,10 +2,17 @@ import { useAsyncData } from "./useAsyncData";
 import { useAiSummary } from "./useAiSummary";
 import { api } from "@/lib/api";
 
-export function useAcquisition({ startDate, endDate }) {
+export function useAcquisition({ startDate, endDate, compareStart = null, compareEnd = null, hasComparison = false }) {
   const { data, loading, initialLoading, error } = useAsyncData(
-    () => api.acquisition.overview({ startDate, endDate }),
-    [startDate, endDate]
+    () => api.acquisition.overview({
+      startDate,
+      endDate,
+      // Only send compare dates when comparison is actually active
+      compareStart: hasComparison ? compareStart : null,
+      compareEnd:   hasComparison ? compareEnd   : null,
+    }),
+    // Re-fetch whenever dates OR comparison config changes
+    [startDate, endDate, hasComparison ? compareStart : null, hasComparison ? compareEnd : null]
   );
 
   const { data: filterOpts } = useAsyncData(
@@ -17,8 +24,13 @@ export function useAcquisition({ startDate, endDate }) {
     () => api.acquisition.aiSummary(endDate)
   );
 
+  // When comparison is off, zero out deltas so no component renders delta badges
+  const cleanedData = data && !hasComparison
+    ? { ...data, kpis: data.kpis ? { ...data.kpis, deltas: {} } : data.kpis }
+    : data;
+
   return {
-    data,
+    data: cleanedData,
     loading,
     initialLoading,
     error,

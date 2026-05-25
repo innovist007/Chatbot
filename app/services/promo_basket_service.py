@@ -25,35 +25,38 @@ class PromoBasketFilters:
     start_date: date
     end_date: date
     compare_mode: str = "mom"
+    compare_start: date | None = None
+    compare_end: date | None = None
 
     @property
     def length_days(self) -> int:
         return (self.end_date - self.start_date).days + 1
 
     def compare_period(self) -> "PromoBasketFilters":
-
+        if self.compare_start and self.compare_end:
+            return PromoBasketFilters(
+                start_date=self.compare_start,
+                end_date=self.compare_end,
+                compare_mode=self.compare_mode,
+            )
         if self.compare_mode == "dod":
             return PromoBasketFilters(
                 start_date=self.start_date - timedelta(days=1),
                 end_date=self.end_date - timedelta(days=1),
                 compare_mode=self.compare_mode,
             )
-
         if self.compare_mode == "wow":
             return PromoBasketFilters(
                 start_date=self.start_date - timedelta(days=7),
                 end_date=self.end_date - timedelta(days=7),
                 compare_mode=self.compare_mode,
             )
-
         if self.compare_mode == "yoy":
             return PromoBasketFilters(
                 start_date=self.start_date.replace(year=self.start_date.year - 1),
                 end_date=self.end_date.replace(year=self.end_date.year - 1),
                 compare_mode=self.compare_mode,
             )
-
-        # default MOM
         return PromoBasketFilters(
             start_date=self.start_date - timedelta(days=30),
             end_date=self.end_date - timedelta(days=30),
@@ -61,18 +64,15 @@ class PromoBasketFilters:
         )
 
     def cache_key(self, prefix: str) -> str:
-
         parts = [
             prefix,
             self.start_date.isoformat(),
             self.end_date.isoformat(),
-            self.compare_mode,
+            (self.compare_start.isoformat() if self.compare_start else ""),
+            (self.compare_end.isoformat() if self.compare_end else ""),
         ]
-
         raw = "|".join(parts)
-
         key_hash = hashlib.md5(raw.encode()).hexdigest()[:12]
-
         return f"promobasket:{prefix}:{key_hash}"
 
 

@@ -23,38 +23,40 @@ logger = logging.getLogger(__name__)
 class AppCRFilters:
     start_date: date
     end_date: date
-    platforms: list[str] | None = None  # Android, iOS, All
-    users: list[str] | None = None  # First-time, Returning, All
-    compare_mode: str = "MoM"  # DoD, WoW, MoM, YoY
+    platforms: list[str] | None = None
+    users: list[str] | None = None
+    compare_mode: str = "MoM"
+    compare_start: date | None = None
+    compare_end: date | None = None
 
     @property
     def length_days(self) -> int:
         return (self.end_date - self.start_date).days + 1
 
     def previous_period(self) -> "AppCRFilters":
-        """Get comparison period based on compare_mode."""
+        if self.compare_start and self.compare_end:
+            return replace(self, start_date=self.compare_start, end_date=self.compare_end)
         if self.compare_mode == "DoD":
             n = 1
         elif self.compare_mode == "WoW":
             n = 7
         elif self.compare_mode == "YoY":
             n = 365
-        else:  # MoM
+        else:
             n = 30
-        
         return replace(self,
                        start_date=self.start_date - timedelta(days=n),
                        end_date=self.end_date - timedelta(days=n))
-    
+
     def cache_key(self, prefix: str) -> str:
-        """Generate deterministic cache key from filter values."""
         parts = [
             prefix,
             self.start_date.isoformat(),
             self.end_date.isoformat(),
+            (self.compare_start.isoformat() if self.compare_start else ""),
+            (self.compare_end.isoformat() if self.compare_end else ""),
             ",".join(sorted(self.platforms or [])),
             ",".join(sorted(self.users or [])),
-            self.compare_mode,
         ]
         key_string = "|".join(parts)
         key_hash = hashlib.md5(key_string.encode()).hexdigest()[:12]

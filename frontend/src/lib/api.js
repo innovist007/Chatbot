@@ -84,6 +84,8 @@ export const api = {
         start_date: filters.startDate,
         end_date: filters.endDate,
       });
+      if (filters.compareStart) params.set("compare_start", filters.compareStart);
+      if (filters.compareEnd)   params.set("compare_end",   filters.compareEnd);
       (filters.channels || []).forEach((v) => params.append("channel_groups", v));
       (filters.devices || []).forEach((v) => params.append("devices", v));
       (filters.campaigns || []).forEach((v) => params.append("campaigns", v));
@@ -94,6 +96,9 @@ export const api = {
     },
     filterOptions() {
       return cachedGet("/web-cr/filter-options", "filter-opts:web-cr", 4 * 60 * 60 * 1000);
+    },
+    latestDate() {
+      return cachedGet("/web-cr/latest-date", "web-cr:latest-date", 60 * 60 * 1000);
     },
    aiSummary() {
   return cachedGet("/web-cr/ai-summary", "ai-summary:web-cr");
@@ -124,9 +129,8 @@ export const api = {
       });
       (filters.platforms || []).forEach((v) => params.append("platforms", v));
       (filters.users || []).forEach((v) => params.append("users", v));
-      if (filters.compareMode) {
-        params.append("compare_mode", filters.compareMode);
-      }
+      if (filters.compareStart) params.set("compare_start", filters.compareStart);
+      if (filters.compareEnd)   params.set("compare_end",   filters.compareEnd);
       return request(`/app-cr/overview?${params}`);
     },
     filterOptions() {
@@ -149,9 +153,8 @@ export const api = {
     if (filters.customer && filters.customer !== "All") {
       params.append("customer", filters.customer);
     }
-    if (filters.compareMode) {
-      params.append("compare_mode", filters.compareMode);
-    }
+    if (filters.compareStart) params.set("compare_start", filters.compareStart);
+    if (filters.compareEnd)   params.set("compare_end",   filters.compareEnd);
     return request(`/d2c-rto/overview?${params}`);
   },
   aiSummary() {
@@ -168,9 +171,8 @@ promo: {
     if (filters.offerType && filters.offerType !== "All offers") {
       params.append("offer_type", filters.offerType);
     }
-    if (filters.compareMode) {
-      params.append("compare_mode", filters.compareMode);
-    }
+    if (filters.compareStart) params.set("compare_start", filters.compareStart);
+    if (filters.compareEnd)   params.set("compare_end",   filters.compareEnd);
     return request(`/promo/overview?${params}`);
   },
   aiSummary() {
@@ -188,9 +190,8 @@ retention: {
     if (filters.brand && filters.brand !== "All") {
       params.append("brand", filters.brand);
     }
-    if (filters.compareMode) {
-      params.append("compare_mode", filters.compareMode);
-    }
+    if (filters.compareStart) params.set("compare_start", filters.compareStart);
+    if (filters.compareEnd)   params.set("compare_end",   filters.compareEnd);
     return request(`/retention/overview?${params}`);
   },
   aiSummary() {
@@ -210,18 +211,38 @@ acquisition: {
     return params;
   },
   overview(filters = {}) {
-    return request(`/acquisition/overview?${this._buildParams(filters)}`);
+    const params = this._buildParams(filters);
+    if (filters.compareStart) params.set("compare_start", filters.compareStart);
+    if (filters.compareEnd)   params.set("compare_end",   filters.compareEnd);
+    return request(`/acquisition/overview?${params}`);
   },
   trend(filters = {}, granularity = "day") {
     const params = this._buildParams(filters);
     params.set("granularity", granularity);
     return request(`/acquisition/trend?${params}`);
   },
-  table(filters = {}, level = "campaign", compareMode = "MoM") {
+  table(filters = {}, level = "campaign", compareStart = null, compareEnd = null) {
     const params = this._buildParams(filters);
     params.set("level", level);
-    params.set("compare_mode", compareMode);
+    if (compareStart) params.set("compare_start", compareStart);
+    if (compareEnd)   params.set("compare_end",   compareEnd);
     return request(`/acquisition/table?${params}`);
+  },
+  waterfall(filters = {}) {
+    return request(`/acquisition/waterfall?${this._buildParams(filters)}`);
+  },
+  pivotTable(filters = {}, pivotBy = "brand") {
+    const params = this._buildParams(filters);
+    params.set("pivot_by", pivotBy);
+    return request(`/acquisition/pivot-table?${params}`);
+  },
+  gainersDecliners(filters = {}, level = "campaign", sortBy = "roas_delta") {
+    const params = this._buildParams(filters);
+    params.set("level", level);
+    params.set("sort_by", sortBy);
+    if (filters.compareStart) params.set("compare_start", filters.compareStart);
+    if (filters.compareEnd)   params.set("compare_end",   filters.compareEnd);
+    return request(`/acquisition/gainers-decliners?${params}`);
   },
   filterOptions() {
     return cachedGet("/acquisition/filter-options", "filter-opts:acquisition", 4 * 60 * 60 * 1000);
@@ -231,8 +252,10 @@ acquisition: {
     const url = endDate ? `/acquisition/ai-summary?end_date=${endDate}` : "/acquisition/ai-summary";
     return cachedGet(url, key);
   },
-  partnership({ startDate, endDate, compareMode = "MoM" } = {}) {
-    const params = new URLSearchParams({ start_date: startDate, end_date: endDate, compare_mode: compareMode });
+  partnership({ startDate, endDate, compareStart = null, compareEnd = null } = {}) {
+    const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
+    if (compareStart) params.set("compare_start", compareStart);
+    if (compareEnd)   params.set("compare_end",   compareEnd);
     return request(`/acquisition/partnership?${params}`);
   },
 },
@@ -243,7 +266,8 @@ supplyChain: {
       start_date: filters.startDate,
       end_date: filters.endDate,
     });
-    if (filters.compareMode) p.append("compare_mode", filters.compareMode);
+    if (filters.compareStart) p.set("compare_start", filters.compareStart);
+    if (filters.compareEnd)   p.set("compare_end",   filters.compareEnd);
     return p;
   },
   overview(filters) { return request(`/supply-chain/overview?${this._baseParams(filters)}`); },

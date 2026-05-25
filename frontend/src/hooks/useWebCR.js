@@ -3,7 +3,7 @@ import { api } from "@/lib/api";
 import { useAsyncData } from "./useAsyncData";
 import { useAiSummary } from "./useAiSummary";
 
-export function useWebCR({ startDate, endDate }) {
+export function useWebCR({ startDate, endDate, compareStart = null, compareEnd = null }) {
   // Filters
   const [device,       setDevice]       = useState(null);
   const [visitor,      setVisitor]      = useState(null);
@@ -21,6 +21,7 @@ export function useWebCR({ startDate, endDate }) {
   const { data, loading, initialLoading, error } = useAsyncData(
     () => api.webCr.overview({
       startDate, endDate,
+      compareStart, compareEnd,
       devices:       device       ? [device]       : null,
       channels:      channel      ? [channel]      : null,
       sessionTypes:  visitor      ? [visitor]      : null,
@@ -28,7 +29,7 @@ export function useWebCR({ startDate, endDate }) {
       contentGroups: contentGroup ? [contentGroup] : null,
       landingPages:  landingPage  ? [landingPage]  : null,
     }),
-    [startDate, endDate, device, visitor, channel, campaign, contentGroup, landingPage]
+    [startDate, endDate, compareStart, compareEnd, device, visitor, channel, campaign, contentGroup, landingPage]
   );
 
   // Filter options — one-shot, cached
