@@ -1,18 +1,18 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
-import { TwoTierNav } from "@/components/TwoTierNav";
-import { ChatPanel } from "@/components/ChatPanel";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-import WebCrPage from "@/pages/WebCrPage";
-import D2COverviewPage from "@/pages/D2COverviewPage";
-import AppCRPage from "./pages/AppCRPage";
-import LoginPage from "./pages/LoginPage";
-import D2CRtoPage from "./pages/D2CRtoPage";
-import PromoBasketPage from "./pages/PromoBasketPage";
-import RetentionPage from "./pages/RetentionPage";
-import SupplyChainPage from "./pages/SupplyChainPage";
-import AcquisitionPage from "./pages/AcquisitionPage";
-import AdminPage from "./pages/AdminPage";
+import { TwoTierNav } from "@/layout/TwoTierNav";
+import { ChatPanel } from "@/modules/chat/ChatPanel";
+import { ProtectedRoute } from "@/modules/auth/ProtectedRoute";
+import WebCrPage from "@/modules/web_cr/WebCrPage";
+import D2COverviewPage from "@/modules/d2c_overview/D2COverviewPage";
+import AppCRPage from "@/modules/app_cr/AppCRPage";
+import LoginPage from "@/modules/auth/LoginPage";
+import D2CRtoPage from "@/modules/d2c_rto/D2CRtoPage";
+import PromoBasketPage from "@/modules/promo_basket/PromoBasketPage";
+import RetentionPage from "@/modules/retention/RetentionPage";
+import SupplyChainPage from "@/modules/supply_chain/SupplyChainPage";
+import AcquisitionPage from "@/modules/acquisition/AcquisitionPage";
+import AdminPage from "@/modules/auth/AdminPage";
 import { todayISO, daysAgoISO, computeCompareDates } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
 import { toast } from "sonner";
@@ -29,7 +29,15 @@ function PageRoute({ route, children }) {
 }
 
 function NoAccessPage() {
-  const { logout } = useAuth();
+  const { logout, isAdmin, permissions } = useAuth();
+  // Permissions still resolving — don't flash the no-access screen
+  if (permissions === null) return null;
+  // Access was granted (or user is an admin) — leave the dead-end and go to
+  // the first allowed page instead of staying stuck on /no-access after a refresh.
+  if (isAdmin) return <Navigate to="/d2c-overview" replace />;
+  if (Array.isArray(permissions) && permissions.length > 0) {
+    return <Navigate to={permissions[0]} replace />;
+  }
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg">
       <div className="text-center">

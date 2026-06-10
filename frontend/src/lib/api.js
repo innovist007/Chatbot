@@ -39,7 +39,6 @@ async function request(url, options = {}) {
 // localStorage-backed cache for endpoints whose response barely changes within a day
 // (e.g. AI daily summaries). Returns the cached value immediately if fresh,
 // otherwise fetches, stores, and returns.
-const DEFAULT_AI_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12h
 const AI_CACHE_PREFIX = "ai-summary:";
 
 export function clearAiSummaryCache() {
@@ -55,7 +54,7 @@ export function clearAiSummaryCache() {
   }
 }
 
-function cachedGet(url, cacheKey, ttlMs = DEFAULT_AI_CACHE_TTL_MS) {
+function cachedGet(url, cacheKey, ttlMs) {
   try {
     const raw = localStorage.getItem(cacheKey);
     if (raw) {
@@ -68,6 +67,8 @@ function cachedGet(url, cacheKey, ttlMs = DEFAULT_AI_CACHE_TTL_MS) {
     // ignore corrupted cache entries; treat as miss
   }
   return request(url).then((value) => {
+    // Never cache a pending response — it would freeze the UI on reload
+    if (value?.status === "pending") return value;
     try {
       localStorage.setItem(cacheKey, JSON.stringify({ value, expiresAt: Date.now() + ttlMs }));
     } catch {
@@ -78,6 +79,41 @@ function cachedGet(url, cacheKey, ttlMs = DEFAULT_AI_CACHE_TTL_MS) {
 }
 
 export const api = {
+  d2cOverview: {
+    _params(filters) {
+      const p = new URLSearchParams({ start_date: filters.startDate, end_date: filters.endDate });
+      if (filters.compareStart) p.set("compare_start", filters.compareStart);
+      if (filters.compareEnd)   p.set("compare_end",   filters.compareEnd);
+      return p;
+    },
+    data(filters) {
+      return request(`/d2c-overview/data?${this._params(filters)}`);
+    },
+    kpis(filters) {
+      return request(`/d2c-overview/kpis?${this._params(filters)}`);
+    },
+    metaSummary(filters) {
+      return request(`/d2c-overview/meta-summary?${this._params(filters)}`);
+    },
+    retentionSummary(filters) {
+      return request(`/d2c-overview/retention-summary?${this._params(filters)}`);
+    },
+    supplySummary(filters) {
+      return request(`/d2c-overview/supply-summary?${this._params(filters)}`);
+    },
+    pnlTrend(filters) {
+      const p = new URLSearchParams({
+        start_date:  filters.startDate,
+        end_date:    filters.endDate,
+        granularity: filters.granularity || "month",
+      });
+      return request(`/d2c-overview/pnl-trend?${p}`);
+    },
+    aiSummaryStreamUrl() {
+      return "/d2c-overview/ai-summary/stream";
+    },
+  },
+
   webCr: {
     overview(filters) {
       const params = new URLSearchParams({
@@ -100,9 +136,9 @@ export const api = {
     latestDate() {
       return cachedGet("/web-cr/latest-date", "web-cr:latest-date", 60 * 60 * 1000);
     },
-   aiSummary() {
-  return cachedGet("/web-cr/ai-summary", "ai-summary:web-cr");
-},
+    aiSummaryStreamUrl() {
+      return "/web-cr/ai-summary/stream";
+    },
   },
   
   d2c: {
@@ -125,20 +161,26 @@ export const api = {
     overview(filters) {
       const params = new URLSearchParams({
         start_date: filters.startDate,
-        end_date: filters.endDate,
+        end_date:   filters.endDate,
       });
-      (filters.platforms || []).forEach((v) => params.append("platforms", v));
-      (filters.users || []).forEach((v) => params.append("users", v));
       if (filters.compareStart) params.set("compare_start", filters.compareStart);
       if (filters.compareEnd)   params.set("compare_end",   filters.compareEnd);
+      if (filters.compareMode)  params.set("compare_mode",  filters.compareMode);
       return request(`/app-cr/overview?${params}`);
     },
-    filterOptions() {
-      return cachedGet("/app-cr/filter-options", "filter-opts:app-cr", 4 * 60 * 60 * 1000);
+    trend(filters) {
+      const params = new URLSearchParams({
+        start_date:   filters.startDate,
+        end_date:     filters.endDate,
+        granularity:  filters.granularity  || "day",
+        os:           filters.os           || "All",
+        install_type: filters.installType  || "All",
+      });
+      return request(`/app-cr/trend?${params}`);
     },
-    aiSummary() {
-    return cachedGet("/app-cr/ai-summary", "ai-summary:app-cr");
-  },
+    aiSummaryStreamUrl() {
+      return "/app-cr/ai-summary/stream";
+    },
   },
 
   d2cRto: {
@@ -157,8 +199,8 @@ export const api = {
     if (filters.compareEnd)   params.set("compare_end",   filters.compareEnd);
     return request(`/d2c-rto/overview?${params}`);
   },
-  aiSummary() {
-    return cachedGet("/d2c-rto/ai-summary", "ai-summary:d2c-rto");
+  aiSummaryStreamUrl() {
+    return "/d2c-rto/ai-summary/stream";
   },
 },
 
@@ -175,39 +217,67 @@ promo: {
     if (filters.compareEnd)   params.set("compare_end",   filters.compareEnd);
     return request(`/promo/overview?${params}`);
   },
-  aiSummary() {
-    return cachedGet("/promo/ai-summary", "ai-summary:promo");
+  aiSummaryStreamUrl() {
+    return "/promo/ai-summary/stream";
   },
 },
 
 retention: {
-  overview(filters) {
-    const params = new URLSearchParams({
-      start_date: filters.startDate,
-      end_date: filters.endDate,
-      retention_window: filters.retentionWindow || "30d",
-    });
-    if (filters.brand && filters.brand !== "All") {
-      params.append("brand", filters.brand);
-    }
-    if (filters.compareStart) params.set("compare_start", filters.compareStart);
-    if (filters.compareEnd)   params.set("compare_end",   filters.compareEnd);
-    return request(`/retention/overview?${params}`);
+  _p(filters) {
+    const p = new URLSearchParams({ start_date: filters.startDate, end_date: filters.endDate });
+    (filters.brands || []).forEach((v) => p.append("brands", v));
+    return p;
   },
-  aiSummary() {
-    return cachedGet("/retention/ai-summary", "ai-summary:retention");
+  // Tab 1 — Overview (all panels)
+  overview(filters) { return request(`/retention/overview?${this._p(filters)}`); },
+  keyMetrics(filters) { return request(`/retention/key-metrics?${this._p(filters)}`); },
+  keyMetricsCompare(filters) { return request(`/retention/key-metrics?${this._p(filters)}`); },
+  retentionWindows(filters) { return request(`/retention/retention-windows?${this._p(filters)}`); },
+  cohortHeatmap(filters) { return request(`/retention/cohort-heatmap?${this._p(filters)}`); },
+  composition(filters) { return request(`/retention/composition?${this._p(filters)}`); },
+  // Tab 2 — Retention trend
+  trend(filters, segment = "brand", window = "30d", granularity = "WoW") {
+    const p = this._p(filters);
+    p.set("segment", segment); p.set("window", window); p.set("granularity", granularity);
+    return request(`/retention/trend?${p}`);
   },
+  ltvCac(filters) { return request(`/retention/ltv-cac?${this._p(filters)}`); },
+  brandMix(filters) { return request(`/retention/brand-mix?${this._p(filters)}`); },
+  brandOverlap(filters) { return request(`/retention/brand-overlap?${this._p(filters)}`); },
+  // Tab 3 — Product
+  productTable(filters) { return request(`/retention/product-table?${this._p(filters)}`); },
+  crossSell(filters, window = "30d", foProduct = null) {
+    const p = this._p(filters); p.set("window", window);
+    if (foProduct) p.set("fo_product", foProduct);
+    return request(`/retention/cross-sell?${p}`);
+  },
+  foSoGap(filters) { return request(`/retention/fo-so-gap?${this._p(filters)}`); },
+  affinityMatrix(filters) { return request(`/retention/affinity-matrix?${this._p(filters)}`); },
+  returnRate(filters) { return request(`/retention/return-rate?${this._p(filters)}`); },
+  // Tab 4 — Acquisition quality
+  channelQuality(filters, window = "30d") {
+    const p = this._p(filters); p.set("window", window);
+    return request(`/retention/channel-quality?${p}`);
+  },
+  discountRepeat(filters) { return request(`/retention/discount-repeat?${this._p(filters)}`); },
+  paymentSplit(filters) { return request(`/retention/payment-split?${this._p(filters)}`); },
+  cityTier(filters) { return request(`/retention/city-tier?${this._p(filters)}`); },
+  aovByOrder(filters) { return request(`/retention/aov-by-order?${this._p(filters)}`); },
+  // Tab 5 — Unit economics
+  contributionMargin(filters) { return request(`/retention/contribution-margin?${this._p(filters)}`); },
+  aiSummaryStreamUrl() { return "/retention/ai-summary/stream"; },
 },
 
 acquisition: {
-  _buildParams({ startDate, endDate, campaigns, stages, creativeTypes, brands, languages, adNames } = {}) {
+  _buildParams({ startDate, endDate, campaigns, stages, creativeTypes, brands, languages, adNames, adsetNames } = {}) {
     const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
-    (campaigns || []).forEach((v) => params.append("campaigns", v));
-    (stages || []).forEach((v) => params.append("stages", v));
-    (creativeTypes || []).forEach((v) => params.append("creative_types", v));
-    (brands || []).forEach((v) => params.append("brands", v));
-    (languages || []).forEach((v) => params.append("languages", v));
-    (adNames || []).forEach((v) => params.append("ad_names", v));
+    (campaigns    || []).forEach((v) => params.append("campaigns",     v));
+    (stages       || []).forEach((v) => params.append("stages",        v));
+    (creativeTypes|| []).forEach((v) => params.append("creative_types",v));
+    (brands       || []).forEach((v) => params.append("brands",        v));
+    (languages    || []).forEach((v) => params.append("languages",     v));
+    (adNames      || []).forEach((v) => params.append("ad_names",      v));
+    (adsetNames   || []).forEach((v) => params.append("adset_names",   v));
     return params;
   },
   overview(filters = {}) {
@@ -245,18 +315,25 @@ acquisition: {
     return request(`/acquisition/gainers-decliners?${params}`);
   },
   filterOptions() {
-    return cachedGet("/acquisition/filter-options", "filter-opts:acquisition", 4 * 60 * 60 * 1000);
+    return cachedGet("/acquisition/filter-options", "filter-opts:acquisition-v2", 4 * 60 * 60 * 1000);
   },
-  aiSummary(endDate) {
-    const key = `ai-summary:acquisition:${endDate || "latest"}`;
-    const url = endDate ? `/acquisition/ai-summary?end_date=${endDate}` : "/acquisition/ai-summary";
-    return cachedGet(url, key);
+  aiSummaryStreamUrl(endDate) {
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+    const defaultDate = yesterday.toISOString().slice(0, 10);
+    // Cap to yesterday — pipeline only has data through yesterday
+    const resolvedDate = (!endDate || endDate >= defaultDate) ? defaultDate : endDate;
+    return `/acquisition/ai-summary/stream?end_date=${resolvedDate}`;
   },
   partnership({ startDate, endDate, compareStart = null, compareEnd = null } = {}) {
     const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
     if (compareStart) params.set("compare_start", compareStart);
     if (compareEnd)   params.set("compare_end",   compareEnd);
     return request(`/acquisition/partnership?${params}`);
+  },
+  geo({ startDate, endDate, groupBy = "pincode", campaigns = [] } = {}) {
+    const params = new URLSearchParams({ start_date: startDate, end_date: endDate, group_by: groupBy });
+    (campaigns || []).forEach((v) => params.append("campaigns", v));
+    return request(`/acquisition/geo?${params}`);
   },
 },
 
@@ -299,6 +376,6 @@ supplyChain: {
       : `/supply-chain/segment-options`;
     return cachedGet(url, `filter-opts:sc-segment:${segment || "all"}`, 4 * 60 * 60 * 1000);
   },
-  aiSummary() { return cachedGet("/supply-chain/ai-summary", "ai-summary:supply-chain"); },
+  aiSummaryStreamUrl() { return "/supply-chain/ai-summary/stream"; },
 },
 };

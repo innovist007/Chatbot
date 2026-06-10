@@ -11,7 +11,19 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
-from app.routers import chat, d2c_rto, dashboard, web_cr, d2c_router, app_cr, auth, promo_basket, supply_chain, acquisition
+from app.modules.chat.router import router as chat_router
+from app.modules.dashboard.router import router as dashboard_router
+from app.modules.web_cr.router import router as web_cr_router
+from app.modules.d2c.router import router as d2c_router
+from app.modules.app_cr.router import router as app_cr_router
+from app.modules.auth.router import router as auth_router
+from app.modules.d2c_rto.router import router as d2c_rto_router
+from app.modules.promo_basket.router import router as promo_basket_router
+from app.modules.supply_chain.router import router as supply_chain_router
+from app.modules.acquisition.router import router as acquisition_router
+from app.modules.retention.router import router as retention_router
+from app.modules.d2c_overview.router import router as d2c_overview_router
+from app.modules.internal.router import router as internal_router
 
 settings = get_settings()
 
@@ -40,16 +52,19 @@ app.add_middleware(
 )
 app.add_middleware(GZipMiddleware, minimum_size=500)
 
-app.include_router(chat.router)
-app.include_router(dashboard.router)
-app.include_router(web_cr.router)
-app.include_router(d2c_router.router)
-app.include_router(app_cr.router)
-app.include_router(auth.router)
-app.include_router(d2c_rto.router)
-app.include_router(promo_basket.router)
-app.include_router(supply_chain.router)
-app.include_router(acquisition.router)
+app.include_router(chat_router)
+app.include_router(dashboard_router)
+app.include_router(web_cr_router)
+app.include_router(d2c_router)
+app.include_router(app_cr_router)
+app.include_router(auth_router)
+app.include_router(d2c_rto_router)
+app.include_router(promo_basket_router)
+app.include_router(supply_chain_router)
+app.include_router(acquisition_router)
+app.include_router(retention_router)
+app.include_router(d2c_overview_router)
+app.include_router(internal_router)
 
 # --- Serve the small HTML/JS client at /ui ---------------------------------
 UI_DIR = Path(__file__).parent.parent / "static"

@@ -1,4 +1,15 @@
-.env
+# ── Environment files ─────────────────────────────────────────
+# .env             → committed (base non-secret defaults)
+# .env.example     → committed (template)
+# .env.local       → git-ignored (local dev secrets)
+# .env.production  → git-ignored (production secrets)
+.env.local
+.env.production
+
+# Frontend env — only .env.local is secret
+frontend/.env.local
+
+# ── Python ────────────────────────────────────────────────────
 .venv/
 venv/
 __pycache__/
@@ -6,7 +17,9 @@ __pycache__/
 *.pyo
 .pytest_cache/
 .mypy_cache/
+*.egg-info/
+
+# ── IDE ───────────────────────────────────────────────────────
 .vscode/
 .idea/
-*.egg-info/
 .DS_Store
